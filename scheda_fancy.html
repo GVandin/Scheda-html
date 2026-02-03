@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Scheda Allenamento Fancy</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; background:#f0f2f5; }
+h1 { text-align:center; margin-bottom:20px; color:#333; }
+.giorno { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1); margin-bottom:15px; padding:10px; }
+.giorno h2 { cursor:pointer; margin:0; padding:8px 12px; background:#4CAF50; color:#fff; border-radius:8px; transition:background 0.3s; }
+.giorno h2:hover { background:#45a049; }
+ul { list-style:none; padding:0; margin:10px 0 0 0; }
+li { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin:3px 0; padding:5px; border-radius:5px; cursor:grab; }
+li input { padding:3px; width:100px; font-size:0.9em; }
+li.dragging { opacity:0.5; background:#e0e0e0; }
+button { padding:2px 6px; font-size:0.85em; cursor:pointer; border:none; border-radius:4px; background:#f44336; color:white; }
+.add-container { text-align:center; margin:15px 0; }
+input[type=text], select { padding:5px; margin-right:5px; width:120px; }
+.pet {background:#ffe0e0;}
+.spalle {background:#e0f0ff;}
+.braccia {background:#fff0e0;}
+.postura {background:#e0ffe0;}
+@media(max-width:600px){
+  li input, select { width:80px; font-size:0.8em; }
+}
+</style>
+</head>
+<body>
+
+<h1>Scheda Allenamento Fancy</h1>
+
+<div class="add-container">
+  <input type="text" id="nuovoGiornoNome" placeholder="Nome nuovo giorno">
+  <button id="aggiungiGiorno">Aggiungi Giorno</button>
+</div>
+
+<div id="schedaContainer"></div>
+
+<div class="add-container">
+  <select id="giornoSelezionato"></select>
+  <input type="text" id="nomeEsercizio" placeholder="Nome esercizio">
+  <input type="text" id="serieEsercizio" placeholder="Serie">
+  <input type="text" id="repEsercizio" placeholder="Ripetizioni">
+  <input type="text" id="recuperoEsercizio" placeholder="Recupero">
+  <input type="text" id="caricoEsercizio" placeholder="Carico">
+  <select id="gruppoEsercizio">
+    <option value="pet">Petto</option>
+    <option value="spalle">Spalle</option>
+    <option value="braccia">Braccia</option>
+    <option value="postura">Postura</option>
+  </select>
+  <button id="aggiungiEsercizio">Aggiungi Esercizio</button>
+</div>
+
+<script>
+// ================= Dati iniziali =================
+const schedaContainer = document.getElementById("schedaContainer");
+const giornoSelect = document.getElementById("giornoSelezionato");
+const LOCAL_STORAGE_KEY = "schedaFancyAllenamento"; // chiave separata
+
+const giorniIniziali = {
+  "Giorno A – Petto + Spalle + Postura": [
+    {nome:"Panca piana bilanciere", serie:"4", rep:"8", recupero:"2min", carico:"72,5kg", gruppo:"pet"},
+    {nome:"Croci manubri panca inclinata", serie:"4", rep:"12", recupero:"90s", carico:"16kg", gruppo:"pet"},
+    {nome:"Croci ai cavi alte", serie:"3", rep:"12–15", recupero:"60s", carico:"moderato", gruppo:"pet"},
+    {nome:"Face pull ai cavi", serie:"4", rep:"12", recupero:"90s", carico:"50kg", gruppo:"postura"},
+    {nome:"Alzate laterali manubri", serie:"4", rep:"12", recupero:"60s", carico:"12kg", gruppo:"spalle"},
+    {nome:"Rear delts machine / cavi", serie:"4", rep:"12", recupero:"60s", carico:"45–47kg", gruppo:"postura"},
+    {nome:"Shoulder press bilanciere in piedi", serie:"4", rep:"10", recupero:"90s", carico:"30kg", gruppo:"spalle"},
+    {nome:"Cuffia dei rotatori – extrarotazioni", serie:"3", rep:"10–12", recupero:"60s", carico:"7–9kg", gruppo:"postura"}
+  ],
+  "Giorno B – Schiena + Spalle + Richiamo Petto": [
+    {nome:"Lat pulldown presa prona", serie:"4", rep:"8", recupero:"90s", carico:"59kg", gruppo:"braccia"},
+    {nome:"Rematore manubri / long pull ai cavi", serie:"4", rep:"8", recupero:"90s", carico:"27,5–50kg", gruppo:"spalle"},
+    {nome:"Rear delts machine / cavi", serie:"4", rep:"12", recupero:"60s", carico:"45–47kg", gruppo:"postura"},
+    {nome:"Face pull ai cavi", serie:"4", rep:"12", recupero:"90s", carico:"50kg", gruppo:"postura"},
+    {nome:"Alzate laterali manubri", serie:"4", rep:"12", recupero:"60s", carico:"12kg", gruppo:"spalle"},
+    {nome:"Richiamo petto – croci manubri panca poco inclinata", serie:"1", rep:"12–15", recupero:"60s", carico:"12–14kg", gruppo:"pet"}
+  ],
+  "Giorno C – Braccia + Spalle + Petto + Postura": [
+    {nome:"Curl manubri in piedi", serie:"4", rep:"12", recupero:"60s", carico:"12kg", gruppo:"braccia"},
+    {nome:"Pushdown tricipiti ai cavi", serie:"4", rep:"12", recupero:"60s", carico:"32kg", gruppo:"braccia"},
+    {nome:"Spinte manubri seduto (spalle)", serie:"4", rep:"10–12", recupero:"60s", carico:"14kg", gruppo:"spalle"},
+    {nome:"Spinte manubri panca inclinata (petto)", serie:"4", rep:"8", recupero:"90s", carico:"26kg", gruppo:"pet"},
+    {nome:"Croci ai cavi basse", serie:"3", rep:"12–15", recupero:"60s", carico:"moderato", gruppo:"pet"},
+    {nome:"Serratus punch ai cavi", serie:"3", rep:"12–15", recupero:"60s", carico:"23kg", gruppo:"postura"}
+  ]
+};
+
+// ================= Funzioni =================
+function creaLiEsercizio(e){
+  const li=document.createElement('li'); li.draggable=true;
+  li.classList.add(e.gruppo);
+
+  const nomeInput=document.createElement('input'); nomeInput.value=e.nome; nomeInput.placeholder="Nome";
+  const serieInput=document.createElement('input'); serieInput.value=e.serie; serieInput.placeholder="Serie";
+  const repInput=document.createElement('input'); repInput.value=e.rep; repInput.placeholder="Ripetizioni";
+  const recInput=document.createElement('input'); recInput.value=e.recupero; recInput.placeholder="Recupero";
+  const caricoInput=document.createElement('input'); caricoInput.value=e.carico; caricoInput.placeholder="Carico";
+  const delBtn=document.createElement('button'); delBtn.textContent="❌";
+
+  delBtn.addEventListener('click', ()=>{
+    li.remove();
+    salvaScheda();
+  });
+
+  [nomeInput, serieInput, repInput, recInput, caricoInput].forEach(input=>{
+    input.addEventListener('input', salvaScheda);
+  });
+
+  li.append(nomeInput, serieInput, repInput, recInput, caricoInput, delBtn);
+  return li;
+}
+
+function creaGiorno(nome, esercizi){
+  const div=document.createElement('div'); div.classList.add('giorno'); div.dataset.nome=nome;
+  const h2=document.createElement('h2'); h2.textContent=nome; div.appendChild(h2);
+  const ul=document.createElement('ul');
+  esercizi.forEach(e=> ul.appendChild(creaLiEsercizio(e)));
+  div.appendChild(ul);
+  schedaContainer.appendChild(div);
+
+  h2.addEventListener('click', ()=>{ ul.style.display=(ul.style.display==='none')?'block':'none'; });
+
+  // Drag & Drop
+  let draggedItem=null;
+  ul.addEventListener('dragstart', e=>{ draggedItem=e.target; e.target.classList.add('dragging'); });
+  ul.addEventListener('dragend', e=>{ e.target.classList.remove('dragging'); salvaScheda(); });
+  ul.addEventListener('dragover', e=>{ e.preventDefault(); const after=getDragAfterElement(ul,e.clientY); if(after==null) ul.appendChild(draggedItem); else ul.insertBefore(draggedItem,after); });
+
+  aggiornaSelect();
+}
+
+function getDragAfterElement(container,y){
+  const draggableElements=[...container.querySelectorAll("li:not(.dragging)")];
+  return draggableElements.reduce((closest,child)=>{
+    const box=child.getBoundingClientRect();
+    const offset=y-box.top-box.height/2;
+    if(offset<0 && offset>closest.offset) return {offset:offset, element:child};
+    else return closest;
+  }, {offset:Number.NEGATIVE_INFINITY}).element;
+}
+
+function salvaScheda(){
+  const data={};
+  document.querySelectorAll('.giorno').forEach(div=>{
+    const nome=div.dataset.nome;
+    const ul=div.querySelector('ul');
+    data[nome]=Array.from(ul.children).map(li=>{
+      const inputs=li.querySelectorAll('input');
+      let gruppo='pet';
+      li.classList.forEach(c=>{ if(['pet','spalle','braccia','postura'].includes(c)) gruppo=c; });
+      return {nome:inputs[0].value, serie:inputs[1].value, rep:inputs[2].value, recupero:inputs[3].value, carico:inputs[4].value, gruppo};
+    });
+  });
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+}
+
+function aggiornaSelect(){
+  giornoSelect.innerHTML="";
+  document.querySelectorAll('.giorno').forEach(g=>{
+    const opt=document.createElement('option'); opt.value=g.dataset.nome; opt.text=g.dataset.nome;
+    giornoSelect.appendChild(opt);
+  });
+}
+
+// ================= Eventi =================
+document.getElementById("aggiungiGiorno").addEventListener('click', ()=>{
+  const nome=document.getElementById("nuovoGiornoNome").value.trim();
+  if(!nome) return alert("Inserisci un nome per il giorno");
+  creaGiorno(nome,[]);
+  salvaScheda();
+  document.getElementById("nuovoGiornoNome").value="";
+});
+
+document.getElementById("aggiungiEsercizio").addEventListener('click', ()=>{
+  const giornoId=giornoSelect.value;
+  if(!giornoId) return alert("Seleziona un giorno");
+  const e={
+    nome: document.getElementById("nomeEsercizio").value.trim(),
+    serie: document.getElementById("serieEsercizio").value.trim(),
+    rep: document.getElementById("repEsercizio").value.trim(),
+    recupero: document.getElementById("recuperoEsercizio").value.trim(),
+    carico: document.getElementById("caricoEsercizio").value.trim(),
+    gruppo: document.getElementById("gruppoEsercizio").value
+  };
+  if(!e.nome) return alert("Inserisci il nome dell'esercizio");
+  const ul=document.querySelector(`.giorno[data-nome='${giornoId}'] ul`);
+  ul.appendChild(creaLiEsercizio(e));
+  salvaScheda();
+
+  document.getElementById("nomeEsercizio").value="";
+  document.getElementById("serieEsercizio").value="";
+  document.getElementById("repEsercizio").value="";
+  document.getElementById("recuperoEsercizio").value="";
+  document.getElementById("caricoEsercizio").value="";
+});
+
+// ================= Caricamento =================
+function caricaScheda(){
+  const saved=JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
+  const data=saved || giorniIniziali;
+  for(const g in data) creaGiorno(g, data[g]);
+}
+
+caricaScheda();
+</script>
+
+</body>
+</html>
