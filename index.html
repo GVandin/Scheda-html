@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Scheda Allenamento Modificabile</title>
+<title>Scheda Allenamento Definitiva</title>
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; background:#f9f9f9; }
 h1 { text-align:center; margin-bottom:20px; }
@@ -25,21 +25,22 @@ li {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  align-items: center;
 }
 li.dragging { opacity: 0.5; background: #e0e0e0; }
 li input { width: 120px; padding: 3px; }
-li button { padding: 2px 5px; }
+button { padding: 2px 5px; }
 .giorno ul { max-width: 700px; margin: 0 auto; }
 .add-container { margin-bottom: 20px; text-align:center; }
-input[type=text] { padding:5px; margin-right:5px; width:200px; }
+input[type=text] { padding:5px; margin-right:5px; width:150px; }
 </style>
 </head>
 <body>
 
-<h1>Scheda Allenamento Modificabile</h1>
+<h1>Scheda Allenamento Definitiva</h1>
 
 <div class="add-container">
-  <input type="text" id="nuovoGiornoNome" placeholder="Nome nuovo giorno (es: Giorno D)">
+  <input type="text" id="nuovoGiornoNome" placeholder="Nome nuovo giorno">
   <button id="aggiungiGiorno">Aggiungi Giorno</button>
 </div>
 
@@ -56,10 +57,11 @@ input[type=text] { padding:5px; margin-right:5px; width:200px; }
 </div>
 
 <script>
+// ================= Dati iniziali =================
 const schedaContainer = document.getElementById("schedaContainer");
 const giornoSelect = document.getElementById("giornoSelezionato");
 
-// Dati iniziali
+// Esercizi iniziali
 const giorniIniziali = {
   "Giorno A – Petto + Spalle + Postura": [
     {nome:"Panca piana bilanciere", serie:"4", rep:"8", recupero:"2min", carico:"72,5kg"},
@@ -89,26 +91,42 @@ const giorniIniziali = {
   ]
 };
 
-// Funzione per creare giorno
-function creaGiorno(nome, esercizi){
-  const div = document.createElement("div");
-  div.classList.add("giorno");
-  div.id = nome.replace(/\s+/g,'');
-  const h2 = document.createElement("h2");
-  h2.textContent = nome;
-  div.appendChild(h2);
+// ================= Funzioni =================
+function creaLiEsercizio(e){
+  const li=document.createElement('li'); li.draggable=true;
 
-  const ul = document.createElement("ul");
-  esercizi.forEach(e=>{
-    const li = creaLiEsercizio(e);
-    ul.appendChild(li);
+  const nomeInput=document.createElement('input'); nomeInput.value=e.nome; nomeInput.placeholder="Nome";
+  const serieInput=document.createElement('input'); serieInput.value=e.serie; serieInput.placeholder="Serie";
+  const repInput=document.createElement('input'); repInput.value=e.rep; repInput.placeholder="Ripetizioni";
+  const recInput=document.createElement('input'); recInput.value=e.recupero; recInput.placeholder="Recupero";
+  const caricoInput=document.createElement('input'); caricoInput.value=e.carico; caricoInput.placeholder="Carico";
+
+  const delBtn=document.createElement('button'); delBtn.textContent="❌";
+  delBtn.addEventListener('click', ()=>{
+    li.remove();
+    salvaGiorno(li.closest('.giorno').id);
   });
+
+  [nomeInput, serieInput, repInput, recInput, caricoInput].forEach(input=>{
+    input.addEventListener('input', ()=>{
+      salvaGiorno(li.closest('.giorno').id);
+    });
+  });
+
+  li.append(nomeInput, serieInput, repInput, recInput, caricoInput, delBtn);
+  return li;
+}
+
+function creaGiorno(nome, esercizi){
+  const div=document.createElement('div'); div.classList.add('giorno'); div.id=nome.replace(/\s+/g,'');
+  const h2=document.createElement('h2'); h2.textContent=nome; div.appendChild(h2);
+  const ul=document.createElement('ul');
+  esercizi.forEach(e=> ul.appendChild(creaLiEsercizio(e)));
   div.appendChild(ul);
   schedaContainer.appendChild(div);
 
   // Collapsible
-  h2.addEventListener("click", ()=>{ ul.style.display=(ul.style.display==='none')?'block':'none'; });
-
+  h2.addEventListener('click', ()=>{ ul.style.display=(ul.style.display==='none')?'block':'none'; });
   aggiornaSelect();
 
   // Drag & Drop
@@ -117,43 +135,17 @@ function creaGiorno(nome, esercizi){
   ul.addEventListener('dragend', e=>{ e.target.classList.remove('dragging'); salvaGiorno(div.id); });
   ul.addEventListener('dragover', e=>{ e.preventDefault(); const after=getDragAfterElement(ul,e.clientY); if(after==null) ul.appendChild(draggedItem); else ul.insertBefore(draggedItem,after); });
 
-  // Carica ordine salvato
-  const saved = JSON.parse(localStorage.getItem(div.id) || "[]");
+  // Carica dati salvati
+  const saved = JSON.parse(localStorage.getItem(div.id)||"[]");
   if(saved.length>0){
-    saved.forEach(text=>{
-      const li = Array.from(ul.children).find(li=>li.querySelector('.nome').value===text);
-      if(li) ul.appendChild(li);
-    });
+    ul.innerHTML="";
+    saved.forEach(e=> ul.appendChild(creaLiEsercizio(e)));
   }
 }
 
-// Crea <li> per esercizio con input modificabili
-function creaLiEsercizio(e){
-  const li=document.createElement('li');
-  li.draggable=true;
-
-  const nomeInput=document.createElement('input'); nomeInput.value=e.nome; nomeInput.classList.add('nome');
-  const serieInput=document.createElement('input'); serieInput.value=e.serie; serieInput.placeholder='Serie';
-  const repInput=document.createElement('input'); repInput.value=e.rep; repInput.placeholder='Ripetizioni';
-  const recInput=document.createElement('input'); recInput.value=e.recupero; recInput.placeholder='Recupero';
-  const caricoInput=document.createElement('input'); caricoInput.value=e.carico; caricoInput.placeholder='Carico';
-
-  // Salvataggio on change
-  [nomeInput, serieInput, repInput, recInput, caricoInput].forEach(input=>{
-    input.addEventListener('input', ()=>{
-      const ul = li.parentElement;
-      salvaGiorno(ul.parentElement.id);
-    });
-  });
-
-  li.appendChild(nomeInput); li.appendChild(serieInput); li.appendChild(repInput); li.appendChild(recInput); li.appendChild(caricoInput);
-  return li;
-}
-
-// Drag helper
-function getDragAfterElement(container, y){
-  const draggableElements = [...container.querySelectorAll("li:not(.dragging)")];
-  return draggableElements.reduce((closest, child)=>{
+function getDragAfterElement(container,y){
+  const draggableElements=[...container.querySelectorAll("li:not(.dragging)")];
+  return draggableElements.reduce((closest,child)=>{
     const box=child.getBoundingClientRect();
     const offset=y-box.top-box.height/2;
     if(offset<0 && offset>closest.offset) return {offset:offset, element:child};
@@ -161,16 +153,15 @@ function getDragAfterElement(container, y){
   }, {offset:Number.NEGATIVE_INFINITY}).element;
 }
 
-// Salvataggio giorno
 function salvaGiorno(id){
-  const ul = document.querySelector(`#${id} ul`);
-  const order = Array.from(ul.children).map(li=>{
-    return li.querySelector('.nome').value;
+  const ul=document.querySelector(`#${id} ul`);
+  const data=Array.from(ul.children).map(li=>{
+    const inputs=li.querySelectorAll('input');
+    return {nome:inputs[0].value, serie:inputs[1].value, rep:inputs[2].value, recupero:inputs[3].value, carico:inputs[4].value};
   });
-  localStorage.setItem(id, JSON.stringify(order));
+  localStorage.setItem(id, JSON.stringify(data));
 }
 
-// Aggiorna select giorni
 function aggiornaSelect(){
   giornoSelect.innerHTML="";
   document.querySelectorAll('.giorno').forEach(g=>{
@@ -179,29 +170,29 @@ function aggiornaSelect(){
   });
 }
 
-// Aggiungi nuovo giorno
-document.getElementById("aggiungiGiorno").addEventListener("click", ()=>{
+// ================= Eventi aggiungi =================
+document.getElementById("aggiungiGiorno").addEventListener('click', ()=>{
   const nome=document.getElementById("nuovoGiornoNome").value.trim();
-  if(nome==="") return alert("Inserisci un nome per il giorno");
+  if(!nome) return alert("Inserisci un nome per il giorno");
   creaGiorno(nome,[]);
   document.getElementById("nuovoGiornoNome").value="";
 });
 
-// Aggiungi nuovo esercizio
-document.getElementById("aggiungiEsercizio").addEventListener("click", ()=>{
+document.getElementById("aggiungiEsercizio").addEventListener('click', ()=>{
   const giornoId=giornoSelect.value;
-  const nomeE=document.getElementById("nomeEsercizio").value.trim();
-  const serieE=document.getElementById("serieEsercizio").value.trim();
-  const repE=document.getElementById("repEsercizio").value.trim();
-  const recE=document.getElementById("recuperoEsercizio").value.trim();
-  const caricoE=document.getElementById("caricoEsercizio").value.trim();
-  if(nomeE==="") return alert("Inserisci il nome dell'esercizio");
-
+  const e={
+    nome: document.getElementById("nomeEsercizio").value.trim(),
+    serie: document.getElementById("serieEsercizio").value.trim(),
+    rep: document.getElementById("repEsercizio").value.trim(),
+    recupero: document.getElementById("recuperoEsercizio").value.trim(),
+    carico: document.getElementById("caricoEsercizio").value.trim()
+  };
+  if(!e.nome) return alert("Inserisci il nome dell'esercizio");
   const ul=document.querySelector(`#${giornoId} ul`);
-  const li=creaLiEsercizio({nome:nomeE,serie:serieE,rep:repE,recupero:recE,carico:caricoE});
-  ul.appendChild(li);
+  ul.appendChild(creaLiEsercizio(e));
   salvaGiorno(giornoId);
 
+  // Pulisce input
   document.getElementById("nomeEsercizio").value="";
   document.getElementById("serieEsercizio").value="";
   document.getElementById("repEsercizio").value="";
@@ -209,7 +200,7 @@ document.getElementById("aggiungiEsercizio").addEventListener("click", ()=>{
   document.getElementById("caricoEsercizio").value="";
 });
 
-// Carica giorni iniziali
+// ================= Carica giorni iniziali =================
 for(const g in giorniIniziali) creaGiorno(g,giorniIniziali[g]);
 </script>
 
