@@ -1,101 +1,124 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Scheda Allenamento</title>
+<meta charset="UTF-8">
+<title>Scheda Allenamento Collapsible</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+h2 { cursor: pointer; background: #ccc; padding: 8px; border-radius: 4px; }
+ul { list-style: none; padding: 0; margin: 0 0 15px 0; }
+li { margin: 5px 0; padding: 8px; background: #f0f0f0; border-radius: 4px; cursor: move; }
+li.dragging { opacity: 0.5; }
+</style>
+</head>
+<body>
 
-  <style>
-    body {
-      font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 16px;
-      background: #f0f2f5;
+<h1>Scheda Allenamento</h1>
+
+<div class="giorno" id="giornoA">
+  <h2>Giorno A – Petto + Spalle + Postura</h2>
+  <ul>
+    <li>Panca piana bilanciere - 4×8 @ 72,5 kg</li>
+    <li>Croci manubri panca inclinata - 4×12 @ 16 kg</li>
+    <li>Croci ai cavi alte - 3×12–15 @ carico moderato</li>
+    <li>Face pull ai cavi - 4×12 @ 50 kg</li>
+    <li>Alzate laterali manubri - 4×12 @ 12 kg</li>
+    <li>Rear delts machine / cavi - 4×12 @ 45–47 kg</li>
+    <li>Shoulder press bilanciere in piedi - 4×10 @ 30 kg</li>
+    <li>Cuffia dei rotatori – extrarotazioni - 3×10–12 @ 7–9 kg</li>
+  </ul>
+</div>
+
+<div class="giorno" id="giornoB">
+  <h2>Giorno B – Schiena + Spalle + Richiamo Petto</h2>
+  <ul>
+    <li>Lat pulldown presa prona - 4×8 @ 59 kg</li>
+    <li>Rematore manubri / long pull ai cavi - 4×8 @ 27,5–50 kg</li>
+    <li>Rear delts machine / cavi - 4×12 @ 45–47 kg</li>
+    <li>Face pull ai cavi - 4×12 @ 50 kg</li>
+    <li>Alzate laterali manubri - 4×12 @ 12 kg</li>
+    <li>Richiamo petto – croci manubri panca poco inclinata - 1×12–15 @ 12–14 kg</li>
+  </ul>
+</div>
+
+<div class="giorno" id="giornoC">
+  <h2>Giorno C – Braccia + Spalle + Petto + Postura</h2>
+  <ul>
+    <li>Curl manubri in piedi - 4×12 @ 12 kg</li>
+    <li>Pushdown tricipiti ai cavi - 4×12 @ 32 kg</li>
+    <li>Spinte manubri seduto (spalle) - 4×10–12 @ 14 kg</li>
+    <li>Spinte manubri panca inclinata (petto) - 4×8 @ 26 kg</li>
+    <li>Croci ai cavi basse - 3×12–15 @ carico moderato</li>
+    <li>Serratus punch ai cavi - 3×12–15 @ 23 kg</li>
+  </ul>
+</div>
+
+<script>
+// COLLAPSIBLE
+document.querySelectorAll('.giorno h2').forEach(header => {
+  header.addEventListener('click', () => {
+    const ul = header.nextElementSibling;
+    ul.style.display = (ul.style.display === 'none') ? 'block' : 'none';
+  });
+});
+
+// DRAG & DROP PER OGNI GIORNO
+document.querySelectorAll('.giorno ul').forEach(ul => {
+  let draggedItem = null;
+
+  // Carica ordine da LocalStorage
+  const id = ul.parentElement.id;
+  const savedOrder = JSON.parse(localStorage.getItem(id) || "[]");
+  if (savedOrder.length > 0) {
+    savedOrder.forEach(text => {
+      const li = Array.from(ul.children).find(li => li.textContent.includes(text));
+      if (li) ul.appendChild(li);
+    });
+  }
+
+  ul.addEventListener('dragstart', e => {
+    draggedItem = e.target;
+    e.target.classList.add('dragging');
+  });
+
+  ul.addEventListener('dragend', e => {
+    e.target.classList.remove('dragging');
+    saveOrder(ul, id);
+  });
+
+  ul.addEventListener('dragover', e => {
+    e.preventDefault();
+    const afterElement = getDragAfterElement(ul, e.clientY);
+    if (afterElement == null) {
+      ul.appendChild(draggedItem);
+    } else {
+      ul.insertBefore(draggedItem, afterElement);
     }
+  });
+});
 
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
+// Funzioni helper
+function getDragAfterElement(container, y) {
+  const draggableElements = [...container.querySelectorAll("li:not(.dragging)")];
+  return draggableElements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
     }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
 
-    .giorno {
-      margin-bottom: 20px;
-    }
+function saveOrder(ul, id) {
+  const order = Array.from(ul.children).map(li => li.textContent.trim());
+  localStorage.setItem(id, JSON.stringify(order));
+}
+</script>
 
-    .giorno-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #ffffff;
-      padding: 10px 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    }
-
-    .giorno-header h2 {
-      font-size: 18px;
-      margin: 0;
-      color: #222;
-    }
-
-    .btn-add-esercizio {
-      background: #1e90ff;
-      color: white;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
-    .card-container {
-      margin-top: 10px;
-      display: none; /* chiuso di default */
-    }
-
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 12px;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-      word-wrap: break-word;
-      transition: transform 0.1s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 12px rgba(0,0,0,0.15);
-    }
-
-    .nome {
-      font-weight: bold;
-      font-size: 16px;
-      margin-bottom: 10px;
-      color: #111;
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-
-    .field {
-      flex: 1;
-    }
-
-    .field label {
-      font-size: 12px;
-      color: #555;
-      display: block;
-      margin-bottom: 2px;
-    }
-
-    .field input {
-      width: 100%;
-      padding: 6px;
+</body>
+</html>      padding: 6px;
       font-size: 14px;
       border-radius: 6px;
       border: 1px solid #ccc;
