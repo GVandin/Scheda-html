@@ -2,206 +2,219 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Scheda Allenamento – Fancy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scheda Allenamento</title>
 
 <style>
 body{
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background:#f4f6f8;
+  background:#f2f4f7;
   margin:0;
-  padding:20px;
+  padding:12px;
 }
 
 h1{
   text-align:center;
-  margin-bottom:20px;
+  font-size:20px;
+  margin:10px 0 16px;
 }
 
+/* GIORNI */
 .giorno{
   background:#fff;
-  border-radius:10px;
-  box-shadow:0 4px 12px rgba(0,0,0,.08);
-  margin-bottom:16px;
+  border-radius:12px;
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
+  margin-bottom:14px;
+  overflow:hidden;
 }
 
 .giorno-header{
-  padding:12px 16px;
-  font-weight:600;
-  cursor:pointer;
-  background:#222;
+  padding:14px;
+  font-weight:700;
+  background:#111;
   color:#fff;
-  border-radius:10px 10px 0 0;
+  cursor:pointer;
 }
 
 .esercizi{
   padding:10px;
 }
 
+/* ESERCIZIO CARD */
 .esercizio{
-  display:grid;
-  grid-template-columns: 1.5fr repeat(4, .7fr) auto;
+  background:#fafafa;
+  border-radius:10px;
+  padding:10px;
+  margin-bottom:10px;
+  display:flex;
+  flex-direction:column;
   gap:6px;
-  align-items:center;
-  margin-bottom:6px;
-  padding:6px;
-  border-radius:6px;
-  background:#f9fafb;
-  cursor:grab;
 }
 
+/* INPUT */
 .esercizio input{
-  padding:4px 6px;
-  font-size:13px;
+  padding:8px;
+  font-size:14px;
+  border-radius:6px;
+  border:1px solid #ccc;
 }
 
-.esercizio button{
-  background:#e74c3c;
+/* GRIGLIA CAMPI */
+.row{
+  display:grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:6px;
+}
+
+/* BOTTONI */
+.actions{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:4px;
+}
+
+.actions button{
+  padding:6px 10px;
   border:none;
-  color:#fff;
-  border-radius:4px;
+  border-radius:6px;
+  font-size:14px;
   cursor:pointer;
 }
 
+.delete{
+  background:#e74c3c;
+  color:#fff;
+}
+
+.add{
+  background:#2ecc71;
+  color:#fff;
+  width:100%;
+}
+
+/* CONTROLLI */
 .controls{
   display:flex;
-  gap:6px;
-  margin:20px 0;
-  flex-wrap:wrap;
+  flex-direction:column;
+  gap:8px;
+  margin:16px 0;
 }
 
 .controls input, .controls select{
-  padding:6px;
-  font-size:14px;
+  padding:10px;
+  font-size:15px;
+  border-radius:8px;
+  border:1px solid #bbb;
 }
 
-.controls button{
-  padding:6px 10px;
-  background:#2ecc71;
-  border:none;
-  color:#fff;
-  border-radius:6px;
-  cursor:pointer;
+/* DESKTOP */
+@media(min-width:768px){
+  body{max-width:900px;margin:auto}
 }
-
-.pet{background:#ffe5e5;}
-.spalle{background:#e5f0ff;}
-.braccia{background:#fff2e0;}
-.postura{background:#e6ffe9;}
 </style>
 </head>
 
 <body>
 
-<h1>Scheda Allenamento – Fancy</h1>
+<h1>Scheda Allenamento</h1>
 
 <div class="controls">
-  <input id="newDayName" placeholder="Nome nuovo giorno">
-  <button onclick="addDay()">+ Giorno</button>
+  <input id="newDay" placeholder="Nuovo giorno">
+  <button class="add" onclick="addDay()">➕ Aggiungi giorno</button>
 </div>
 
 <div id="scheda"></div>
 
 <div class="controls">
   <select id="daySelect"></select>
-  <input id="exName" placeholder="Esercizio">
-  <input id="exSerie" placeholder="Serie">
-  <input id="exRep" placeholder="Rep">
-  <input id="exRec" placeholder="Rec">
-  <input id="exCarico" placeholder="Carico">
-  <select id="exGroup">
-    <option value="pet">Petto</option>
-    <option value="spalle">Spalle</option>
-    <option value="braccia">Braccia</option>
-    <option value="postura">Postura</option>
-  </select>
-  <button onclick="addExercise()">+ Esercizio</button>
+  <input id="name" placeholder="Esercizio">
+  <div class="row">
+    <input id="serie" placeholder="Serie">
+    <input id="rep" placeholder="Ripetizioni">
+    <input id="rec" placeholder="Recupero">
+    <input id="carico" placeholder="Carico">
+  </div>
+  <button class="add" onclick="addExercise()">➕ Aggiungi esercizio</button>
 </div>
 
 <script>
-const STORAGE_KEY = "scheda_fancy_v1";
+const KEY = "scheda_mobile_v1";
 
-const defaultData = {
- "Giorno A – Petto + Spalle + Postura":[
-  {n:"Panca piana bilanciere",s:"4",r:"8",re:"2'",c:"72,5kg",g:"pet"},
-  {n:"Croci manubri inclinata",s:"4",r:"12",re:"90\"",c:"16kg",g:"pet"},
-  {n:"Face pull",s:"4",r:"12",re:"90\"",c:"50kg",g:"postura"},
-  {n:"Alzate laterali",s:"4",r:"12",re:"60\"",c:"12kg",g:"spalle"}
+const defaultData = JSON.parse(localStorage.getItem(KEY)) || {
+ "Giorno A":[
+  {n:"Panca piana bilanciere",s:"4",r:"8",re:"2'",c:"72,5kg"},
+  {n:"Croci manubri inclinata",s:"4",r:"12",re:"90\"",c:"16kg"},
+  {n:"Face pull",s:"4",r:"12",re:"90\"",c:"50kg"},
+  {n:"Alzate laterali",s:"4",r:"12",re:"12kg"}
  ],
- "Giorno B – Schiena + Richiamo":[
-  {n:"Lat machine",s:"4",r:"8",re:"90\"",c:"59kg",g:"braccia"},
-  {n:"Rear delt",s:"4",r:"12",re:"60\"",c:"45kg",g:"postura"}
+ "Giorno B":[
+  {n:"Lat machine",s:"4",r:"8",re:"90\"",c:"59kg"},
+  {n:"Rear delt machine",s:"4",r:"12",re:"60\"",c:"45kg"}
  ],
- "Giorno C – Braccia + Petto":[
-  {n:"Spinte manubri inclinata",s:"4",r:"8",re:"90\"",c:"26kg",g:"pet"},
-  {n:"Serratus punch",s:"3",r:"15",re:"60\"",c:"23kg",g:"postura"}
+ "Giorno C":[
+  {n:"Spinte manubri inclinata",s:"4",r:"8",re:"90\"",c:"26kg"},
+  {n:"Serratus punch",s:"3",r:"15",re:"60\"",c:"23kg"}
  ]
 };
 
-let data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultData;
+let data = defaultData;
 
 function save(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(KEY, JSON.stringify(data));
 }
 
 function render(){
-  const container = document.getElementById("scheda");
-  const daySelect = document.getElementById("daySelect");
-  container.innerHTML = "";
-  daySelect.innerHTML = "";
+  const s = document.getElementById("scheda");
+  const sel = document.getElementById("daySelect");
+  s.innerHTML="";
+  sel.innerHTML="";
 
   Object.keys(data).forEach(day=>{
-    daySelect.innerHTML += `<option>${day}</option>`;
+    sel.innerHTML+=`<option>${day}</option>`;
 
-    const dayDiv = document.createElement("div");
-    dayDiv.className = "giorno";
+    const d = document.createElement("div");
+    d.className="giorno";
 
-    const header = document.createElement("div");
-    header.className = "giorno-header";
-    header.textContent = day;
-    header.onclick = ()=> body.classList.toggle("hidden");
+    const h = document.createElement("div");
+    h.className="giorno-header";
+    h.textContent=day;
 
-    const body = document.createElement("div");
-    body.className = "esercizi";
+    const b = document.createElement("div");
+    b.className="esercizi";
+
+    h.onclick=()=>b.style.display=b.style.display==="none"?"block":"none";
 
     data[day].forEach((e,i)=>{
-      const row = document.createElement("div");
-      row.className = `esercizio ${e.g}`;
-      row.draggable = true;
-
-      row.innerHTML = `
+      const ex=document.createElement("div");
+      ex.className="esercizio";
+      ex.innerHTML=`
         <input value="${e.n}" onchange="edit('${day}',${i},'n',this.value)">
-        <input value="${e.s}" onchange="edit('${day}',${i},'s',this.value)">
-        <input value="${e.r}" onchange="edit('${day}',${i},'r',this.value)">
-        <input value="${e.re}" onchange="edit('${day}',${i},'re',this.value)">
-        <input value="${e.c}" onchange="edit('${day}',${i},'c',this.value)">
-        <button onclick="removeEx('${day}',${i})">✕</button>
+        <div class="row">
+          <input value="${e.s}" onchange="edit('${day}',${i},'s',this.value)">
+          <input value="${e.r}" onchange="edit('${day}',${i},'r',this.value)">
+          <input value="${e.re}" onchange="edit('${day}',${i},'re',this.value)">
+          <input value="${e.c}" onchange="edit('${day}',${i},'c',this.value)">
+        </div>
+        <div class="actions">
+          <button class="delete" onclick="removeEx('${day}',${i})">✕ Elimina</button>
+        </div>
       `;
-      body.appendChild(row);
+      b.appendChild(ex);
     });
 
-    dayDiv.append(header, body);
-    container.appendChild(dayDiv);
+    d.append(h,b);
+    s.appendChild(d);
   });
 }
 
-function edit(day,i,k,v){ data[day][i][k]=v; save(); }
-function removeEx(day,i){ data[day].splice(i,1); save(); render(); }
-
-function addDay(){
-  const name = document.getElementById("newDayName").value.trim();
-  if(!name) return;
-  data[name]=[];
-  save(); render();
-  document.getElementById("newDayName").value="";
-}
-
+function edit(d,i,k,v){data[d][i][k]=v;save();}
+function removeEx(d,i){data[d].splice(i,1);save();render();}
+function addDay(){const n=newDay.value.trim();if(!n)return;data[n]=[];save();render();newDay.value="";}
 function addExercise(){
-  const d = document.getElementById("daySelect").value;
-  data[d].push({
-    n:exName.value,s:exSerie.value,r:exRep.value,
-    re:exRec.value,c:exCarico.value,g:exGroup.value
-  });
-  save(); render();
+  const d=daySelect.value;
+  data[d].push({n:name.value,s:serie.value,r:rep.value,re:rec.value,c:carico.value});
+  save();render();
 }
 
 render();
