@@ -7,43 +7,73 @@
 
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Arial', sans-serif;
       margin: 0;
-      padding: 12px;
-      background: #f2f2f2;
+      padding: 16px;
+      background: #f0f2f5;
     }
 
     h1 {
       text-align: center;
       margin-bottom: 20px;
-    }
-
-    h2 {
-      margin-top: 30px;
-      margin-bottom: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 18px;
+      color: #333;
     }
 
     .giorno {
-      margin-bottom: 30px;
+      margin-bottom: 20px;
+    }
+
+    .giorno-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .giorno-header h2 {
+      font-size: 18px;
+      margin: 0;
+      color: #222;
+    }
+
+    .btn-add-esercizio {
+      background: #1e90ff;
+      color: white;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .card-container {
+      margin-top: 10px;
+      display: none; /* chiuso di default */
     }
 
     .card {
       background: #ffffff;
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 12px;
+      padding: 14px;
       margin-bottom: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
       word-wrap: break-word;
+      transition: transform 0.1s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 12px rgba(0,0,0,0.15);
     }
 
     .nome {
       font-weight: bold;
       font-size: 16px;
       margin-bottom: 10px;
+      color: #111;
     }
 
     .row {
@@ -71,25 +101,22 @@
       border: 1px solid #ccc;
     }
 
-    button {
-      border: none;
-      border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
-    .add {
-      background: #1e90ff;
-      color: white;
-      margin-bottom: 10px;
-    }
-
-    .remove {
+    button.remove {
       background: #e74c3c;
       color: white;
       width: 100%;
       margin-top: 6px;
+    }
+
+    button.add-giorno {
+      background: #28a745;
+      color: white;
+      margin-bottom: 20px;
+      width: 100%;
+      font-size: 16px;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
     }
 
     @media (max-width: 600px) {
@@ -100,6 +127,9 @@
         font-size: 16px;
         padding: 8px;
       }
+      button.add-giorno {
+        font-size: 18px;
+      }
     }
   </style>
 </head>
@@ -107,6 +137,7 @@
 <body>
 
 <h1>Scheda Allenamento</h1>
+<button class="add-giorno" id="btn-add-giorno">+ Aggiungi Giorno</button>
 <div id="app"></div>
 
 <script>
@@ -148,13 +179,17 @@
       const div = document.createElement("div");
       div.className = "giorno";
 
+      const header = document.createElement("div");
+      header.className = "giorno-header";
+
       const titolo = document.createElement("h2");
       titolo.textContent = giorno.nome;
 
       const btnAdd = document.createElement("button");
       btnAdd.textContent = "+ Aggiungi esercizio";
-      btnAdd.className = "add";
-      btnAdd.onclick = () => {
+      btnAdd.className = "btn-add-esercizio";
+      btnAdd.onclick = ev => {
+        ev.stopPropagation();
         const nome = prompt("Nome esercizio:");
         if (!nome) return;
         giorno.esercizi.push({ nome, serie: 3, rip: 10, rec: 60, kg: 0 });
@@ -162,16 +197,14 @@
         render();
       };
 
-      // titolo + pulsante aggiungi
-      const header = document.createElement("div");
-      header.style.display = "flex";
-      header.style.justifyContent = "space-between";
-      header.style.alignItems = "center";
       header.appendChild(titolo);
       header.appendChild(btnAdd);
       div.appendChild(header);
 
-      // card esercizi
+      // Contenitore card collapsabile
+      const cardContainer = document.createElement("div");
+      cardContainer.className = "card-container";
+
       giorno.esercizi.forEach((e, eIndex) => {
         const card = document.createElement("div");
         card.className = "card";
@@ -216,12 +249,32 @@
           render();
         };
 
-        div.appendChild(card);
+        cardContainer.appendChild(card);
       });
+
+      div.appendChild(cardContainer);
+
+      // Toggle apertura/chiusura giorno
+      header.onclick = () => {
+        if (cardContainer.style.display === "none") {
+          cardContainer.style.display = "block";
+        } else {
+          cardContainer.style.display = "none";
+        }
+      };
 
       app.appendChild(div);
     });
   }
+
+  // Pulsante aggiungi giorno
+  document.getElementById("btn-add-giorno").onclick = () => {
+    const nomeGiorno = prompt("Nome nuovo giorno (es. Giorno D):");
+    if (!nomeGiorno) return;
+    giorni.push({ nome: nomeGiorno, esercizi: [] });
+    salva();
+    render();
+  };
 
   render();
 </script>
