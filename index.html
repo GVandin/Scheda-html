@@ -8,57 +8,84 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 10px;
-      background: #f5f5f5;
+      margin: 0;
+      padding: 12px;
+      background: #f2f2f2;
     }
 
     h1 {
       text-align: center;
-    }
-
-    h2 {
-      margin-top: 25px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
       margin-bottom: 20px;
     }
 
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
+    h2 {
+      margin-top: 30px;
+      margin-bottom: 10px;
     }
 
-    input {
-      width: 60px;
-      padding: 4px;
+    .giorno {
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .nome {
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 10px;
+      word-break: break-word;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .field {
+      flex: 1;
+    }
+
+    .field label {
+      font-size: 12px;
+      color: #555;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 6px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
     }
 
     button {
-      padding: 6px 10px;
       border: none;
-      border-radius: 4px;
-      color: white;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
       cursor: pointer;
     }
 
     .add {
-      background-color: #1e90ff;
-      margin-left: 10px;
+      background: #1e90ff;
+      color: white;
+      margin-bottom: 10px;
     }
 
     .remove {
-      background-color: #e74c3c;
-    }
-
-    @media (max-width: 600px) {
-      input {
-        width: 50px;
-      }
+      background: #e74c3c;
+      color: white;
+      width: 100%;
+      margin-top: 6px;
     }
   </style>
 </head>
@@ -66,7 +93,7 @@
 <body>
 
 <h1>Scheda Allenamento</h1>
-<div id="container"></div>
+<div id="app"></div>
 
 <script>
   const initialData = [
@@ -82,12 +109,6 @@
       esercizi: [
         { nome: "Lat pulldown presa prona", serie: 4, rip: 8, rec: 90, kg: 59 }
       ]
-    },
-    {
-      nome: "Giorno C",
-      esercizi: [
-        { nome: "Curl manubri in piedi", serie: 4, rip: 12, rec: 60, kg: 12 }
-      ]
     }
   ];
 
@@ -96,6 +117,88 @@
   function salva() {
     localStorage.setItem("scheda", JSON.stringify(giorni));
   }
+
+  function render() {
+    const app = document.getElementById("app");
+    app.innerHTML = "";
+
+    giorni.forEach((giorno, gIndex) => {
+      const div = document.createElement("div");
+      div.className = "giorno";
+
+      const titolo = document.createElement("h2");
+      titolo.textContent = giorno.nome;
+
+      const btnAdd = document.createElement("button");
+      btnAdd.textContent = "+ Aggiungi esercizio";
+      btnAdd.className = "add";
+      btnAdd.onclick = () => {
+        const nome = prompt("Nome esercizio:");
+        if (!nome) return;
+        giorno.esercizi.push({ nome, serie: 3, rip: 10, rec: 60, kg: 0 });
+        salva();
+        render();
+      };
+
+      div.appendChild(titolo);
+      div.appendChild(btnAdd);
+
+      giorno.esercizi.forEach((e, eIndex) => {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <div class="nome">${e.nome}</div>
+
+          <div class="row">
+            <div class="field">
+              <label>Serie</label>
+              <input type="number" value="${e.serie}">
+            </div>
+            <div class="field">
+              <label>Rip</label>
+              <input type="number" value="${e.rip}">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label>Rec (s)</label>
+              <input type="number" value="${e.rec}">
+            </div>
+            <div class="field">
+              <label>Kg</label>
+              <input type="number" value="${e.kg}">
+            </div>
+          </div>
+
+          <button class="remove">Elimina esercizio</button>
+        `;
+
+        const inputs = card.querySelectorAll("input");
+        inputs[0].oninput = ev => { e.serie = +ev.target.value; salva(); };
+        inputs[1].oninput = ev => { e.rip = +ev.target.value; salva(); };
+        inputs[2].oninput = ev => { e.rec = +ev.target.value; salva(); };
+        inputs[3].oninput = ev => { e.kg = +ev.target.value; salva(); };
+
+        card.querySelector(".remove").onclick = () => {
+          giorno.esercizi.splice(eIndex, 1);
+          salva();
+          render();
+        };
+
+        div.appendChild(card);
+      });
+
+      app.appendChild(div);
+    });
+  }
+
+  render();
+</script>
+
+</body>
+</html>  }
 
   function render() {
     const container = document.getElementById("container");
