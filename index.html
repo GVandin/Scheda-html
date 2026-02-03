@@ -21,6 +21,10 @@
     h2 {
       margin-top: 30px;
       margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
     }
 
     .giorno {
@@ -33,13 +37,13 @@
       padding: 12px;
       margin-bottom: 12px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      word-wrap: break-word;
     }
 
     .nome {
       font-weight: bold;
       font-size: 16px;
       margin-bottom: 10px;
-      word-break: break-word;
     }
 
     .row {
@@ -87,6 +91,16 @@
       width: 100%;
       margin-top: 6px;
     }
+
+    @media (max-width: 600px) {
+      .row {
+        flex-direction: column;
+      }
+      .field input {
+        font-size: 16px;
+        padding: 8px;
+      }
+    }
   </style>
 </head>
 
@@ -107,7 +121,15 @@
     {
       nome: "Giorno B",
       esercizi: [
-        { nome: "Lat pulldown presa prona", serie: 4, rip: 8, rec: 90, kg: 59 }
+        { nome: "Lat pulldown presa prona", serie: 4, rip: 8, rec: 90, kg: 59 },
+        { nome: "Rematore alternato manubri", serie: 4, rip: 8, rec: 90, kg: 27.5 }
+      ]
+    },
+    {
+      nome: "Giorno C",
+      esercizi: [
+        { nome: "Curl manubri in piedi", serie: 4, rip: 12, rec: 60, kg: 12 },
+        { nome: "Pushdown tricipiti ai cavi", serie: 4, rip: 12, rec: 60, kg: 32 }
       ]
     }
   ];
@@ -140,9 +162,16 @@
         render();
       };
 
-      div.appendChild(titolo);
-      div.appendChild(btnAdd);
+      // titolo + pulsante aggiungi
+      const header = document.createElement("div");
+      header.style.display = "flex";
+      header.style.justifyContent = "space-between";
+      header.style.alignItems = "center";
+      header.appendChild(titolo);
+      header.appendChild(btnAdd);
+      div.appendChild(header);
 
+      // card esercizi
       giorno.esercizi.forEach((e, eIndex) => {
         const card = document.createElement("div");
         card.className = "card";
@@ -191,85 +220,6 @@
       });
 
       app.appendChild(div);
-    });
-  }
-
-  render();
-</script>
-
-</body>
-</html>  }
-
-  function render() {
-    const container = document.getElementById("container");
-    container.innerHTML = "";
-
-    giorni.forEach((giorno, gIndex) => {
-      const blocco = document.createElement("div");
-
-      blocco.innerHTML = `
-        <h2>
-          ${giorno.nome}
-          <button class="add">+ Esercizio</button>
-        </h2>
-      `;
-
-      const table = document.createElement("table");
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th>Esercizio</th>
-            <th>Serie</th>
-            <th>Rip</th>
-            <th>Rec (s)</th>
-            <th>Kg</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      `;
-
-      const tbody = table.querySelector("tbody");
-
-      giorno.esercizi.forEach((e, eIndex) => {
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-          <td><input value="${e.nome}"></td>
-          <td><input type="number" value="${e.serie}"></td>
-          <td><input type="number" value="${e.rip}"></td>
-          <td><input type="number" value="${e.rec}"></td>
-          <td><input type="number" value="${e.kg}"></td>
-          <td><button class="remove">🗑</button></td>
-        `;
-
-        const inputs = tr.querySelectorAll("input");
-
-        inputs[0].oninput = ev => { e.nome = ev.target.value; salva(); };
-        inputs[1].oninput = ev => { e.serie = +ev.target.value; salva(); };
-        inputs[2].oninput = ev => { e.rip = +ev.target.value; salva(); };
-        inputs[3].oninput = ev => { e.rec = +ev.target.value; salva(); };
-        inputs[4].oninput = ev => { e.kg = +ev.target.value; salva(); };
-
-        tr.querySelector(".remove").onclick = () => {
-          giorno.esercizi.splice(eIndex, 1);
-          salva();
-          render();
-        };
-
-        tbody.appendChild(tr);
-      });
-
-      blocco.querySelector(".add").onclick = () => {
-        const nome = prompt("Nome esercizio:");
-        if (!nome) return;
-        giorno.esercizi.push({ nome, serie: 3, rip: 10, rec: 60, kg: 0 });
-        salva();
-        render();
-      };
-
-      blocco.appendChild(table);
-      container.appendChild(blocco);
     });
   }
 
