@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Scheda Allenamento Definitiva</title>
+<title>Scheda Allenamento Finale</title>
 <style>
 body { font-family: Arial, sans-serif; margin: 20px; background:#f9f9f9; }
 h1 { text-align:center; margin-bottom:20px; }
@@ -37,7 +37,7 @@ input[type=text] { padding:5px; margin-right:5px; width:150px; }
 </head>
 <body>
 
-<h1>Scheda Allenamento Definitiva</h1>
+<h1>Scheda Allenamento Finale</h1>
 
 <div class="add-container">
   <input type="text" id="nuovoGiornoNome" placeholder="Nome nuovo giorno">
@@ -61,7 +61,6 @@ input[type=text] { padding:5px; margin-right:5px; width:150px; }
 const schedaContainer = document.getElementById("schedaContainer");
 const giornoSelect = document.getElementById("giornoSelezionato");
 
-// Esercizi iniziali
 const giorniIniziali = {
   "Giorno A – Petto + Spalle + Postura": [
     {nome:"Panca piana bilanciere", serie:"4", rep:"8", recupero:"2min", carico:"72,5kg"},
@@ -94,53 +93,40 @@ const giorniIniziali = {
 // ================= Funzioni =================
 function creaLiEsercizio(e){
   const li=document.createElement('li'); li.draggable=true;
-
   const nomeInput=document.createElement('input'); nomeInput.value=e.nome; nomeInput.placeholder="Nome";
   const serieInput=document.createElement('input'); serieInput.value=e.serie; serieInput.placeholder="Serie";
   const repInput=document.createElement('input'); repInput.value=e.rep; repInput.placeholder="Ripetizioni";
   const recInput=document.createElement('input'); recInput.value=e.recupero; recInput.placeholder="Recupero";
   const caricoInput=document.createElement('input'); caricoInput.value=e.carico; caricoInput.placeholder="Carico";
-
   const delBtn=document.createElement('button'); delBtn.textContent="❌";
   delBtn.addEventListener('click', ()=>{
     li.remove();
-    salvaGiorno(li.closest('.giorno').id);
+    salvaScheda();
   });
-
   [nomeInput, serieInput, repInput, recInput, caricoInput].forEach(input=>{
-    input.addEventListener('input', ()=>{
-      salvaGiorno(li.closest('.giorno').id);
-    });
+    input.addEventListener('input', salvaScheda);
   });
-
   li.append(nomeInput, serieInput, repInput, recInput, caricoInput, delBtn);
   return li;
 }
 
 function creaGiorno(nome, esercizi){
-  const div=document.createElement('div'); div.classList.add('giorno'); div.id=nome.replace(/\s+/g,'');
+  const div=document.createElement('div'); div.classList.add('giorno'); div.dataset.nome=nome;
   const h2=document.createElement('h2'); h2.textContent=nome; div.appendChild(h2);
   const ul=document.createElement('ul');
   esercizi.forEach(e=> ul.appendChild(creaLiEsercizio(e)));
   div.appendChild(ul);
   schedaContainer.appendChild(div);
 
-  // Collapsible
   h2.addEventListener('click', ()=>{ ul.style.display=(ul.style.display==='none')?'block':'none'; });
-  aggiornaSelect();
 
   // Drag & Drop
   let draggedItem=null;
   ul.addEventListener('dragstart', e=>{ draggedItem=e.target; e.target.classList.add('dragging'); });
-  ul.addEventListener('dragend', e=>{ e.target.classList.remove('dragging'); salvaGiorno(div.id); });
+  ul.addEventListener('dragend', e=>{ e.target.classList.remove('dragging'); salvaScheda(); });
   ul.addEventListener('dragover', e=>{ e.preventDefault(); const after=getDragAfterElement(ul,e.clientY); if(after==null) ul.appendChild(draggedItem); else ul.insertBefore(draggedItem,after); });
 
-  // Carica dati salvati
-  const saved = JSON.parse(localStorage.getItem(div.id)||"[]");
-  if(saved.length>0){
-    ul.innerHTML="";
-    saved.forEach(e=> ul.appendChild(creaLiEsercizio(e)));
-  }
+  aggiornaSelect();
 }
 
 function getDragAfterElement(container,y){
@@ -153,33 +139,39 @@ function getDragAfterElement(container,y){
   }, {offset:Number.NEGATIVE_INFINITY}).element;
 }
 
-function salvaGiorno(id){
-  const ul=document.querySelector(`#${id} ul`);
-  const data=Array.from(ul.children).map(li=>{
-    const inputs=li.querySelectorAll('input');
-    return {nome:inputs[0].value, serie:inputs[1].value, rep:inputs[2].value, recupero:inputs[3].value, carico:inputs[4].value};
+function salvaScheda(){
+  const data={};
+  document.querySelectorAll('.giorno').forEach(div=>{
+    const nome=div.dataset.nome;
+    const ul=div.querySelector('ul');
+    data[nome]=Array.from(ul.children).map(li=>{
+      const inputs=li.querySelectorAll('input');
+      return {nome:inputs[0].value, serie:inputs[1].value, rep:inputs[2].value, recupero:inputs[3].value, carico:inputs[4].value};
+    });
   });
-  localStorage.setItem(id, JSON.stringify(data));
+  localStorage.setItem('schedaAllenamento', JSON.stringify(data));
 }
 
 function aggiornaSelect(){
   giornoSelect.innerHTML="";
   document.querySelectorAll('.giorno').forEach(g=>{
-    const opt=document.createElement('option'); opt.value=g.id; opt.text=g.querySelector('h2').textContent;
+    const opt=document.createElement('option'); opt.value=g.dataset.nome; opt.text=g.dataset.nome;
     giornoSelect.appendChild(opt);
   });
 }
 
-// ================= Eventi aggiungi =================
+// ================= Eventi =================
 document.getElementById("aggiungiGiorno").addEventListener('click', ()=>{
   const nome=document.getElementById("nuovoGiornoNome").value.trim();
   if(!nome) return alert("Inserisci un nome per il giorno");
   creaGiorno(nome,[]);
+  salvaScheda();
   document.getElementById("nuovoGiornoNome").value="";
 });
 
 document.getElementById("aggiungiEsercizio").addEventListener('click', ()=>{
   const giornoId=giornoSelect.value;
+  if(!giornoId) return alert("Seleziona un giorno");
   const e={
     nome: document.getElementById("nomeEsercizio").value.trim(),
     serie: document.getElementById("serieEsercizio").value.trim(),
@@ -188,11 +180,9 @@ document.getElementById("aggiungiEsercizio").addEventListener('click', ()=>{
     carico: document.getElementById("caricoEsercizio").value.trim()
   };
   if(!e.nome) return alert("Inserisci il nome dell'esercizio");
-  const ul=document.querySelector(`#${giornoId} ul`);
+  const ul=document.querySelector(`.giorno[data-nome='${giornoId}'] ul`);
   ul.appendChild(creaLiEsercizio(e));
-  salvaGiorno(giornoId);
-
-  // Pulisce input
+  salvaScheda();
   document.getElementById("nomeEsercizio").value="";
   document.getElementById("serieEsercizio").value="";
   document.getElementById("repEsercizio").value="";
@@ -200,8 +190,14 @@ document.getElementById("aggiungiEsercizio").addEventListener('click', ()=>{
   document.getElementById("caricoEsercizio").value="";
 });
 
-// ================= Carica giorni iniziali =================
-for(const g in giorniIniziali) creaGiorno(g,giorniIniziali[g]);
+// ================= Caricamento =================
+function caricaScheda(){
+  const saved=JSON.parse(localStorage.getItem('schedaAllenamento'));
+  const data=saved || giorniIniziali;
+  for(const g in data) creaGiorno(g, data[g]);
+}
+
+caricaScheda();
 </script>
 
 </body>
