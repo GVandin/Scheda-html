@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scheda Allenamento</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    h2 {
+      margin-top: 25px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      margin-bottom: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+    }
+
+    input {
+      width: 60px;
+      padding: 4px;
+    }
+
+    button {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .add {
+      background-color: #1e90ff;
+      margin-left: 10px;
+    }
+
+    .remove {
+      background-color: #e74c3c;
+    }
+
+    @media (max-width: 600px) {
+      input {
+        width: 50px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Scheda Allenamento</h1>
+<div id="container"></div>
+
+<script>
+  const initialData = [
+    {
+      nome: "Giorno A",
+      esercizi: [
+        { nome: "Panca piana bilanciere", serie: 4, rip: 8, rec: 90, kg: 72.5 },
+        { nome: "Croci manubri panca inclinata", serie: 4, rip: 12, rec: 60, kg: 16 }
+      ]
+    },
+    {
+      nome: "Giorno B",
+      esercizi: [
+        { nome: "Lat pulldown presa prona", serie: 4, rip: 8, rec: 90, kg: 59 }
+      ]
+    },
+    {
+      nome: "Giorno C",
+      esercizi: [
+        { nome: "Curl manubri in piedi", serie: 4, rip: 12, rec: 60, kg: 12 }
+      ]
+    }
+  ];
+
+  let giorni = JSON.parse(localStorage.getItem("scheda")) || initialData;
+
+  function salva() {
+    localStorage.setItem("scheda", JSON.stringify(giorni));
+  }
+
+  function render() {
+    const container = document.getElementById("container");
+    container.innerHTML = "";
+
+    giorni.forEach((giorno, gIndex) => {
+      const blocco = document.createElement("div");
+
+      blocco.innerHTML = `
+        <h2>
+          ${giorno.nome}
+          <button class="add">+ Esercizio</button>
+        </h2>
+      `;
+
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Esercizio</th>
+            <th>Serie</th>
+            <th>Rip</th>
+            <th>Rec (s)</th>
+            <th>Kg</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector("tbody");
+
+      giorno.esercizi.forEach((e, eIndex) => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td><input value="${e.nome}"></td>
+          <td><input type="number" value="${e.serie}"></td>
+          <td><input type="number" value="${e.rip}"></td>
+          <td><input type="number" value="${e.rec}"></td>
+          <td><input type="number" value="${e.kg}"></td>
+          <td><button class="remove">🗑</button></td>
+        `;
+
+        const inputs = tr.querySelectorAll("input");
+
+        inputs[0].oninput = ev => { e.nome = ev.target.value; salva(); };
+        inputs[1].oninput = ev => { e.serie = +ev.target.value; salva(); };
+        inputs[2].oninput = ev => { e.rip = +ev.target.value; salva(); };
+        inputs[3].oninput = ev => { e.rec = +ev.target.value; salva(); };
+        inputs[4].oninput = ev => { e.kg = +ev.target.value; salva(); };
+
+        tr.querySelector(".remove").onclick = () => {
+          giorno.esercizi.splice(eIndex, 1);
+          salva();
+          render();
+        };
+
+        tbody.appendChild(tr);
+      });
+
+      blocco.querySelector(".add").onclick = () => {
+        const nome = prompt("Nome esercizio:");
+        if (!nome) return;
+        giorno.esercizi.push({ nome, serie: 3, rip: 10, rec: 60, kg: 0 });
+        salva();
+        render();
+      };
+
+      blocco.appendChild(table);
+      container.appendChild(blocco);
+    });
+  }
+
+  render();
+</script>
+
+</body>
+</html>
