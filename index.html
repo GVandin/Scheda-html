@@ -2,13 +2,31 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Scheda Allenamento Collapsible</title>
+<title>Scheda Allenamento Collapsible e Drag</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-h2 { cursor: pointer; background: #ccc; padding: 8px; border-radius: 4px; }
+body { font-family: Arial, sans-serif; margin: 20px; background:#f9f9f9; }
+h1 { text-align:center; margin-bottom:20px; }
+.giorno h2 {
+  cursor: pointer;
+  background: #4CAF50;
+  color: white;
+  padding: 10px 12px;
+  border-radius: 4px;
+  margin: 0;
+}
 ul { list-style: none; padding: 0; margin: 0 0 15px 0; }
-li { margin: 5px 0; padding: 8px; background: #f0f0f0; border-radius: 4px; cursor: move; }
-li.dragging { opacity: 0.5; }
+li {
+  margin: 5px 0;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: move;
+  transition: background 0.2s;
+}
+li.dragging { opacity: 0.5; background: #e0e0e0; }
+li:hover { background: #f0f0f0; }
+.giorno ul { max-width: 600px; margin: 0 auto; }
 </style>
 </head>
 <body>
@@ -18,38 +36,38 @@ li.dragging { opacity: 0.5; }
 <div class="giorno" id="giornoA">
   <h2>Giorno A – Petto + Spalle + Postura</h2>
   <ul>
-    <li>Panca piana bilanciere - 4×8 @ 72,5 kg</li>
-    <li>Croci manubri panca inclinata - 4×12 @ 16 kg</li>
-    <li>Croci ai cavi alte - 3×12–15 @ carico moderato</li>
-    <li>Face pull ai cavi - 4×12 @ 50 kg</li>
-    <li>Alzate laterali manubri - 4×12 @ 12 kg</li>
-    <li>Rear delts machine / cavi - 4×12 @ 45–47 kg</li>
-    <li>Shoulder press bilanciere in piedi - 4×10 @ 30 kg</li>
-    <li>Cuffia dei rotatori – extrarotazioni - 3×10–12 @ 7–9 kg</li>
+    <li draggable="true">Panca piana bilanciere - 4×8 @ 72,5 kg</li>
+    <li draggable="true">Croci manubri panca inclinata - 4×12 @ 16 kg</li>
+    <li draggable="true">Croci ai cavi alte - 3×12–15 @ carico moderato</li>
+    <li draggable="true">Face pull ai cavi - 4×12 @ 50 kg</li>
+    <li draggable="true">Alzate laterali manubri - 4×12 @ 12 kg</li>
+    <li draggable="true">Rear delts machine / cavi - 4×12 @ 45–47 kg</li>
+    <li draggable="true">Shoulder press bilanciere in piedi - 4×10 @ 30 kg</li>
+    <li draggable="true">Cuffia dei rotatori – extrarotazioni - 3×10–12 @ 7–9 kg</li>
   </ul>
 </div>
 
 <div class="giorno" id="giornoB">
   <h2>Giorno B – Schiena + Spalle + Richiamo Petto</h2>
   <ul>
-    <li>Lat pulldown presa prona - 4×8 @ 59 kg</li>
-    <li>Rematore manubri / long pull ai cavi - 4×8 @ 27,5–50 kg</li>
-    <li>Rear delts machine / cavi - 4×12 @ 45–47 kg</li>
-    <li>Face pull ai cavi - 4×12 @ 50 kg</li>
-    <li>Alzate laterali manubri - 4×12 @ 12 kg</li>
-    <li>Richiamo petto – croci manubri panca poco inclinata - 1×12–15 @ 12–14 kg</li>
+    <li draggable="true">Lat pulldown presa prona - 4×8 @ 59 kg</li>
+    <li draggable="true">Rematore manubri / long pull ai cavi - 4×8 @ 27,5–50 kg</li>
+    <li draggable="true">Rear delts machine / cavi - 4×12 @ 45–47 kg</li>
+    <li draggable="true">Face pull ai cavi - 4×12 @ 50 kg</li>
+    <li draggable="true">Alzate laterali manubri - 4×12 @ 12 kg</li>
+    <li draggable="true">Richiamo petto – croci manubri panca poco inclinata - 1×12–15 @ 12–14 kg</li>
   </ul>
 </div>
 
 <div class="giorno" id="giornoC">
   <h2>Giorno C – Braccia + Spalle + Petto + Postura</h2>
   <ul>
-    <li>Curl manubri in piedi - 4×12 @ 12 kg</li>
-    <li>Pushdown tricipiti ai cavi - 4×12 @ 32 kg</li>
-    <li>Spinte manubri seduto (spalle) - 4×10–12 @ 14 kg</li>
-    <li>Spinte manubri panca inclinata (petto) - 4×8 @ 26 kg</li>
-    <li>Croci ai cavi basse - 3×12–15 @ carico moderato</li>
-    <li>Serratus punch ai cavi - 3×12–15 @ 23 kg</li>
+    <li draggable="true">Curl manubri in piedi - 4×12 @ 12 kg</li>
+    <li draggable="true">Pushdown tricipiti ai cavi - 4×12 @ 32 kg</li>
+    <li draggable="true">Spinte manubri seduto (spalle) - 4×10–12 @ 14 kg</li>
+    <li draggable="true">Spinte manubri panca inclinata (petto) - 4×8 @ 26 kg</li>
+    <li draggable="true">Croci ai cavi basse - 3×12–15 @ carico moderato</li>
+    <li draggable="true">Serratus punch ai cavi - 3×12–15 @ 23 kg</li>
   </ul>
 </div>
 
@@ -65,9 +83,9 @@ document.querySelectorAll('.giorno h2').forEach(header => {
 // DRAG & DROP PER OGNI GIORNO
 document.querySelectorAll('.giorno ul').forEach(ul => {
   let draggedItem = null;
-
-  // Carica ordine da LocalStorage
   const id = ul.parentElement.id;
+
+  // Carica ordine salvato
   const savedOrder = JSON.parse(localStorage.getItem(id) || "[]");
   if (savedOrder.length > 0) {
     savedOrder.forEach(text => {
@@ -115,191 +133,6 @@ function saveOrder(ul, id) {
   const order = Array.from(ul.children).map(li => li.textContent.trim());
   localStorage.setItem(id, JSON.stringify(order));
 }
-</script>
-
-</body>
-</html>      padding: 6px;
-      font-size: 14px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-
-    button.remove {
-      background: #e74c3c;
-      color: white;
-      width: 100%;
-      margin-top: 6px;
-    }
-
-    button.add-giorno {
-      background: #28a745;
-      color: white;
-      margin-bottom: 20px;
-      width: 100%;
-      font-size: 16px;
-      border-radius: 8px;
-      padding: 10px;
-      cursor: pointer;
-    }
-
-    @media (max-width: 600px) {
-      .row {
-        flex-direction: column;
-      }
-      .field input {
-        font-size: 16px;
-        padding: 8px;
-      }
-      button.add-giorno {
-        font-size: 18px;
-      }
-    }
-  </style>
-</head>
-
-<body>
-
-<h1>Scheda Allenamento</h1>
-<button class="add-giorno" id="btn-add-giorno">+ Aggiungi Giorno</button>
-<div id="app"></div>
-
-<script>
-  const initialData = [
-    {
-      nome: "Giorno A",
-      esercizi: [
-        { nome: "Panca piana bilanciere", serie: 4, rip: 8, rec: 90, kg: 72.5 },
-        { nome: "Croci manubri panca inclinata", serie: 4, rip: 12, rec: 60, kg: 16 }
-      ]
-    },
-    {
-      nome: "Giorno B",
-      esercizi: [
-        { nome: "Lat pulldown presa prona", serie: 4, rip: 8, rec: 90, kg: 59 },
-        { nome: "Rematore alternato manubri", serie: 4, rip: 8, rec: 90, kg: 27.5 }
-      ]
-    },
-    {
-      nome: "Giorno C",
-      esercizi: [
-        { nome: "Curl manubri in piedi", serie: 4, rip: 12, rec: 60, kg: 12 },
-        { nome: "Pushdown tricipiti ai cavi", serie: 4, rip: 12, rec: 60, kg: 32 }
-      ]
-    }
-  ];
-
-  let giorni = JSON.parse(localStorage.getItem("scheda")) || initialData;
-
-  function salva() {
-    localStorage.setItem("scheda", JSON.stringify(giorni));
-  }
-
-  function render() {
-    const app = document.getElementById("app");
-    app.innerHTML = "";
-
-    giorni.forEach((giorno, gIndex) => {
-      const div = document.createElement("div");
-      div.className = "giorno";
-
-      const header = document.createElement("div");
-      header.className = "giorno-header";
-
-      const titolo = document.createElement("h2");
-      titolo.textContent = giorno.nome;
-
-      const btnAdd = document.createElement("button");
-      btnAdd.textContent = "+ Aggiungi esercizio";
-      btnAdd.className = "btn-add-esercizio";
-      btnAdd.onclick = ev => {
-        ev.stopPropagation();
-        const nome = prompt("Nome esercizio:");
-        if (!nome) return;
-        giorno.esercizi.push({ nome, serie: 3, rip: 10, rec: 60, kg: 0 });
-        salva();
-        render();
-      };
-
-      header.appendChild(titolo);
-      header.appendChild(btnAdd);
-      div.appendChild(header);
-
-      // Contenitore card collapsabile
-      const cardContainer = document.createElement("div");
-      cardContainer.className = "card-container";
-
-      giorno.esercizi.forEach((e, eIndex) => {
-        const card = document.createElement("div");
-        card.className = "card";
-
-        card.innerHTML = `
-          <div class="nome">${e.nome}</div>
-
-          <div class="row">
-            <div class="field">
-              <label>Serie</label>
-              <input type="number" value="${e.serie}">
-            </div>
-            <div class="field">
-              <label>Rip</label>
-              <input type="number" value="${e.rip}">
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="field">
-              <label>Rec (s)</label>
-              <input type="number" value="${e.rec}">
-            </div>
-            <div class="field">
-              <label>Kg</label>
-              <input type="number" value="${e.kg}">
-            </div>
-          </div>
-
-          <button class="remove">Elimina esercizio</button>
-        `;
-
-        const inputs = card.querySelectorAll("input");
-        inputs[0].oninput = ev => { e.serie = +ev.target.value; salva(); };
-        inputs[1].oninput = ev => { e.rip = +ev.target.value; salva(); };
-        inputs[2].oninput = ev => { e.rec = +ev.target.value; salva(); };
-        inputs[3].oninput = ev => { e.kg = +ev.target.value; salva(); };
-
-        card.querySelector(".remove").onclick = () => {
-          giorno.esercizi.splice(eIndex, 1);
-          salva();
-          render();
-        };
-
-        cardContainer.appendChild(card);
-      });
-
-      div.appendChild(cardContainer);
-
-      // Toggle apertura/chiusura giorno
-      header.onclick = () => {
-        if (cardContainer.style.display === "none") {
-          cardContainer.style.display = "block";
-        } else {
-          cardContainer.style.display = "none";
-        }
-      };
-
-      app.appendChild(div);
-    });
-  }
-
-  // Pulsante aggiungi giorno
-  document.getElementById("btn-add-giorno").onclick = () => {
-    const nomeGiorno = prompt("Nome nuovo giorno (es. Giorno D):");
-    if (!nomeGiorno) return;
-    giorni.push({ nome: nomeGiorno, esercizi: [] });
-    salva();
-    render();
-  };
-
-  render();
 </script>
 
 </body>
