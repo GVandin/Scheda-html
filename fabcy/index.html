@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Scheda Allenamento</title>
 
+<!-- SORTABLE JS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+
 <style>
 body{
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -19,7 +22,6 @@ h1{
   margin:10px 0 16px;
 }
 
-/* GIORNI */
 .giorno{
   background:#fff;
   border-radius:12px;
@@ -40,7 +42,6 @@ h1{
   padding:10px;
 }
 
-/* ESERCIZIO CARD */
 .esercizio{
   background:#fafafa;
   border-radius:10px;
@@ -49,9 +50,15 @@ h1{
   display:flex;
   flex-direction:column;
   gap:6px;
+  touch-action: manipulation;
 }
 
-/* INPUT */
+.drag{
+  text-align:center;
+  font-size:18px;
+  cursor:grab;
+}
+
 .esercizio input{
   padding:8px;
   font-size:14px;
@@ -59,41 +66,38 @@ h1{
   border:1px solid #ccc;
 }
 
-/* GRIGLIA CAMPI */
 .row{
   display:grid;
   grid-template-columns: repeat(2, 1fr);
   gap:6px;
 }
 
-/* BOTTONI */
 .actions{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  margin-top:4px;
-}
-
-.actions button{
-  padding:6px 10px;
-  border:none;
-  border-radius:6px;
-  font-size:14px;
-  cursor:pointer;
 }
 
 .delete{
   background:#e74c3c;
   color:#fff;
+  border:none;
+  border-radius:6px;
+  padding:6px 10px;
+  font-size:14px;
 }
 
 .add{
   background:#2ecc71;
   color:#fff;
   width:100%;
+  padding:10px;
+  border:none;
+  border-radius:8px;
+  font-size:15px;
+  cursor:pointer;
 }
 
-/* CONTROLLI */
 .controls{
   display:flex;
   flex-direction:column;
@@ -108,7 +112,6 @@ h1{
   border:1px solid #bbb;
 }
 
-/* DESKTOP */
 @media(min-width:768px){
   body{max-width:900px;margin:auto}
 }
@@ -139,48 +142,59 @@ h1{
 </div>
 
 <script>
-const KEY = "scheda_mobile_v1";
+const KEY = "scheda_fancy_drag_v1";
 
-const defaultData = JSON.parse(localStorage.getItem(KEY)) || {
- "Giorno A":[
-  {n:"Panca piana bilanciere",s:"4",r:"8",re:"2'",c:"72,5kg"},
-  {n:"Croci manubri inclinata",s:"4",r:"12",re:"90\"",c:"16kg"},
-  {n:"Face pull",s:"4",r:"12",re:"90\"",c:"50kg"},
-  {n:"Alzate laterali",s:"4",r:"12",re:"12kg"}
- ],
- "Giorno B":[
-  {n:"Lat machine",s:"4",r:"8",re:"90\"",c:"59kg"},
-  {n:"Rear delt machine",s:"4",r:"12",re:"60\"",c:"45kg"}
- ],
- "Giorno C":[
-  {n:"Spinte manubri inclinata",s:"4",r:"8",re:"90\"",c:"26kg"},
-  {n:"Serratus punch",s:"3",r:"15",re:"60\"",c:"23kg"}
- ]
+const data = JSON.parse(localStorage.getItem(KEY)) || {
+
+"GIORNO A – PETTO + SPALLE + POSTURA": [
+ {n:"Panca piana bilanciere",s:"4",r:"8",re:"2'",c:"72,5 kg"},
+ {n:"Croci manubri panca inclinata",s:"4",r:"12",re:"90\"",c:"16 kg"},
+ {n:"Face pull",s:"4",r:"12",re:"90\"",c:"50 kg"},
+ {n:"Alzate laterali manubri",s:"4",r:"12",re:"60\"",c:"12 kg"},
+ {n:"Rear delts machine / cavi",s:"4",r:"12",re:"60\"",c:"45–47 kg"},
+ {n:"Shoulder press bilanciere in piedi",s:"4",r:"10",re:"120\"",c:"30 kg"},
+ {n:"Extrarotazioni gomiti addotti",s:"3",r:"10–12",re:"60\"",c:"9 kg"},
+ {n:"Extrarotazioni in abduzione",s:"3",r:"10–12",re:"60\"",c:"7 kg"}
+],
+
+"GIORNO B – SCHIENA + SPALLE + RICHIAMO PETTO": [
+ {n:"Lat pulldown presa prona",s:"4",r:"8",re:"90\"",c:"59 kg"},
+ {n:"Rematore manubrio / Long pull",s:"4",r:"8",re:"90\"",c:"27,5 / 50–54 kg"},
+ {n:"Rear delts machine / cavi",s:"4",r:"12",re:"60\"",c:"45–47 kg"},
+ {n:"Face pull",s:"4",r:"12",re:"90\"",c:"50 kg"},
+ {n:"Alzate laterali manubri",s:"4",r:"12",re:"60\"",c:"12 kg"},
+ {n:"Croci manubri panca poco inclinata",s:"1",r:"12–15",re:"—",c:"12–14 kg"}
+],
+
+"GIORNO C – BRACCIA + SPALLE + PETTO": [
+ {n:"Curl manubri in piedi",s:"4",r:"12",re:"60\"",c:"12 kg"},
+ {n:"Pushdown tricipiti ai cavi",s:"4",r:"12",re:"60\"",c:"~32 kg"},
+ {n:"Spinte manubri seduto (spalle)",s:"4",r:"10–12",re:"90\"",c:"14 kg"},
+ {n:"Spinte manubri panca inclinata",s:"4",r:"8",re:"90\"",c:"26 kg"},
+ {n:"Croci ai cavi (basse)",s:"3–4",r:"12–15",re:"60\"",c:"progressivo"},
+ {n:"Serratus punch ai cavi",s:"3",r:"12–15",re:"60\"",c:"23 kg"}
+]
+
 };
 
-let data = defaultData;
-
-function save(){
-  localStorage.setItem(KEY, JSON.stringify(data));
-}
+function save(){ localStorage.setItem(KEY, JSON.stringify(data)); }
 
 function render(){
-  const s = document.getElementById("scheda");
-  const sel = document.getElementById("daySelect");
-  s.innerHTML="";
-  sel.innerHTML="";
+  const s=document.getElementById("scheda");
+  const sel=document.getElementById("daySelect");
+  s.innerHTML=""; sel.innerHTML="";
 
   Object.keys(data).forEach(day=>{
     sel.innerHTML+=`<option>${day}</option>`;
 
-    const d = document.createElement("div");
+    const d=document.createElement("div");
     d.className="giorno";
 
-    const h = document.createElement("div");
+    const h=document.createElement("div");
     h.className="giorno-header";
     h.textContent=day;
 
-    const b = document.createElement("div");
+    const b=document.createElement("div");
     b.className="esercizi";
 
     h.onclick=()=>b.style.display=b.style.display==="none"?"block":"none";
@@ -188,7 +202,9 @@ function render(){
     data[day].forEach((e,i)=>{
       const ex=document.createElement("div");
       ex.className="esercizio";
+      ex.dataset.index=i;
       ex.innerHTML=`
+        <div class="drag">☰</div>
         <input value="${e.n}" onchange="edit('${day}',${i},'n',this.value)">
         <div class="row">
           <input value="${e.s}" onchange="edit('${day}',${i},'s',this.value)">
@@ -197,7 +213,8 @@ function render(){
           <input value="${e.c}" onchange="edit('${day}',${i},'c',this.value)">
         </div>
         <div class="actions">
-          <button class="delete" onclick="removeEx('${day}',${i})">✕ Elimina</button>
+          <span>Trascina ↑↓</span>
+          <button class="delete" onclick="removeEx('${day}',${i})">✕</button>
         </div>
       `;
       b.appendChild(ex);
@@ -205,6 +222,17 @@ function render(){
 
     d.append(h,b);
     s.appendChild(d);
+
+    new Sortable(b,{
+      animation:150,
+      handle:".drag",
+      onEnd:e=>{
+        const arr=data[day];
+        const [m]=arr.splice(e.oldIndex,1);
+        arr.splice(e.newIndex,0,m);
+        save(); render();
+      }
+    });
   });
 }
 
