@@ -2,34 +2,29 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Excel Swap & Export</title>
+    <title>Excel Swap - Fix Celle Vuote</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; text-align: center; background-color: #f4f7f6; }
-        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: inline-block; margin-bottom: 20px; }
-        table { border-collapse: collapse; margin: 20px auto; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; padding: 20px; text-align: center; background-color: #f0f2f5; }
+        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; display: inline-block; }
+        table { border-collapse: collapse; margin: 0 auto; background: white; }
         td {
-            width: 130px; height: 50px;
-            border: 1px solid #ddd;
+            width: 100px; height: 40px;
+            border: 1px solid #ccc;
             text-align: center;
             cursor: grab;
-            padding: 10px;
-            color: #333;
+            padding: 5px;
+            min-width: 80px; /* Evita che le celle vuote siano invisibili */
         }
-        td.drag-over { background-color: #d1e7ff; border: 2px dashed #007bff; }
-        button { 
-            padding: 10px 20px; cursor: pointer; background-color: #28a745; 
-            color: white; border: none; border-radius: 4px; font-weight: bold; margin-left: 10px;
-        }
-        button:hover { background-color: #218838; }
-        input[type="file"] { cursor: pointer; }
+        td.drag-over { background-color: #bbdefb; border: 2px solid #2196f3; }
+        button { padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; margin-left: 10px; }
     </style>
 </head>
 <body>
 
     <div class="controls">
         <input type="file" id="fileInput" accept=".xlsx, .xls" />
-        <button id="exportBtn" style="display:none;">📥 Esporta in Excel</button>
+        <button id="exportBtn" style="display:none;">📥 Esporta Excel</button>
     </div>
 
     <div id="tableContainer"></div>
@@ -40,7 +35,6 @@
     const tableContainer = document.getElementById('tableContainer');
     let draggedElement = null;
 
-    // Lettura File Excel
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if(!file) return;
@@ -49,23 +43,32 @@
         reader.onload = (event) => {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+
+            /* MODIFICA CHIAVE: 
+               Usiamo 'defval' per riempire le celle vuote con una stringa vuota 
+               e ci assicuriamo che legga tutto il range (es. A1:Z100)
+            */
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                header: 1, 
+                defval: "" // Riempie le celle vuote invece di saltarle
+            });
             
             generateTable(jsonData);
-            exportBtn.style.display = 'inline-block'; // Mostra il tasto export
+            exportBtn.style.display = 'inline-block';
         };
         reader.readAsArrayBuffer(file);
     });
 
-    // Generazione Tabella HTML
     function generateTable(data) {
         let html = '<table id="dataSheet">';
         data.forEach(row => {
             html += '<tr>';
             row.forEach(cellValue => {
-                let val = cellValue !== undefined ? cellValue : "";
-                html += `<td draggable="true">${val}</td>`;
+                // Se la cella è una stringa vuota, inseriamo un'entità spazio per mantenerla cliccabile
+                let content = (cellValue === "") ? "&nbsp;" : cellValue;
+                html += `<td draggable="true">${content}</td>`;
             });
             html += '</tr>';
         });
@@ -74,12 +77,12 @@
         attachDragEvents();
     }
 
-    // Gestione Drag & Drop (Swap)
     function attachDragEvents() {
         const cells = document.querySelectorAll('td');
         cells.forEach(cell => {
             cell.addEventListener('dragstart', (e) => {
                 draggedElement = cell;
+                e.dataTransfer.setData('text/plain', null); // Fix per Firefox
                 cell.style.opacity = '0.4';
             });
             cell.addEventListener('dragend', () => {
@@ -87,9 +90,13 @@
                 cells.forEach(c => c.classList.remove('drag-over'));
             });
             cell.addEventListener('dragover', (e) => e.preventDefault());
-            cell.addEventListener('dragenter', () => cell.classList.add('drag-over'));
+            cell.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                cell.classList.add('drag-over');
+            });
             cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
-            cell.addEventListener('drop', function() {
+            cell.addEventListener('drop', function(e) {
+                e.preventDefault();
                 if (draggedElement !== this) {
                     let temp = this.innerHTML;
                     this.innerHTML = draggedElement.innerHTML;
@@ -99,18 +106,12 @@
         });
     }
 
-    // Esportazione in Excel
     exportBtn.addEventListener('click', () => {
         const table = document.getElementById('dataSheet');
-        if(!table) return;
-
-        // Trasforma la tabella HTML attuale in un foglio di lavoro
         const newWorksheet = XLSX.utils.table_to_sheet(table);
         const newWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Dati Permutati");
-
-        // Scarica il file
-        XLSX.writeFile(newWorkbook, "tabella_modificata.xlsx");
+        XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Sheet1");
+        XLSX.writeFile(newWorkbook, "export_ordinato.xlsx");
     });
 </script>
 
