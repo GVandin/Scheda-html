@@ -2,102 +2,88 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Excel Swap - Fix Celle Vuote</title>
+    <title>Excel Swap - Fixed Grid</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; text-align: center; background-color: #f0f2f5; }
-        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; display: inline-block; }
-        table { border-collapse: collapse; margin: 0 auto; background: white; }
+        body { font-family: sans-serif; padding: 20px; background: #f8f9fa; }
+        .container { max-width: 100%; overflow-x: auto; text-align: center; }
+        table { border-collapse: collapse; margin: 20px auto; background: white; table-layout: fixed; }
         td {
-            width: 100px; height: 40px;
+            width: 120px; height: 45px;
             border: 1px solid #ccc;
             text-align: center;
             cursor: grab;
-            padding: 5px;
-            min-width: 80px; /* Evita che le celle vuote siano invisibili */
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
-        td.drag-over { background-color: #bbdefb; border: 2px solid #2196f3; }
-        button { padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; margin-left: 10px; }
+        td.drag-over { background-color: #d1ecf1; border: 2px solid #0c5460; }
+        .btn-group { margin-bottom: 20px; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div class="controls">
+<div class="container">
+    <div class="btn-group">
         <input type="file" id="fileInput" accept=".xlsx, .xls" />
-        <button id="exportBtn" style="display:none;">📥 Esporta Excel</button>
+        <button id="exportBtn" style="display:none;">Esporta Modifiche</button>
     </div>
-
     <div id="tableContainer"></div>
+</div>
 
 <script>
-    const fileInput = document.getElementById('fileInput');
-    const exportBtn = document.getElementById('exportBtn');
-    const tableContainer = document.getElementById('tableContainer');
     let draggedElement = null;
 
-    fileInput.addEventListener('change', (e) => {
+    document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if(!file) return;
-        
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = function(event) {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-
-            /* MODIFICA CHIAVE: 
-               Usiamo 'defval' per riempire le celle vuote con una stringa vuota 
-               e ci assicuriamo che legga tutto il range (es. A1:Z100)
-            */
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-                header: 1, 
-                defval: "" // Riempie le celle vuote invece di saltarle
-            });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
             
-            generateTable(jsonData);
-            exportBtn.style.display = 'inline-block';
+            // 1. Otteniamo i dati come array di array
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+            // 2. Normalizziamo la griglia: troviamo la riga più lunga
+            let maxCols = 0;
+            jsonData.forEach(row => { if(row.length > maxCols) maxCols = row.length; });
+
+            // 3. Generiamo la tabella forzando la larghezza di ogni riga
+            let html = '<table id="targetTable">';
+            jsonData.forEach(row => {
+                html += '<tr>';
+                for(let i = 0; i < maxCols; i++) {
+                    let val = (row[i] !== undefined && row[i] !== "") ? row[i] : "&nbsp;";
+                    html += `<td draggable="true">${val}</td>`;
+                }
+                html += '</tr>';
+            });
+            html += '</table>';
+            
+            document.getElementById('tableContainer').innerHTML = html;
+            document.getElementById('exportBtn').style.display = 'inline-block';
+            attachEvents();
         };
         reader.readAsArrayBuffer(file);
     });
 
-    function generateTable(data) {
-        let html = '<table id="dataSheet">';
-        data.forEach(row => {
-            html += '<tr>';
-            row.forEach(cellValue => {
-                // Se la cella è una stringa vuota, inseriamo un'entità spazio per mantenerla cliccabile
-                let content = (cellValue === "") ? "&nbsp;" : cellValue;
-                html += `<td draggable="true">${content}</td>`;
-            });
-            html += '</tr>';
-        });
-        html += '</table>';
-        tableContainer.innerHTML = html;
-        attachDragEvents();
-    }
-
-    function attachDragEvents() {
+    function attachEvents() {
         const cells = document.querySelectorAll('td');
         cells.forEach(cell => {
             cell.addEventListener('dragstart', (e) => {
                 draggedElement = cell;
-                e.dataTransfer.setData('text/plain', null); // Fix per Firefox
-                cell.style.opacity = '0.4';
-            });
-            cell.addEventListener('dragend', () => {
-                cell.style.opacity = '1';
-                cells.forEach(c => c.classList.remove('drag-over'));
+                e.dataTransfer.setData('text/html', cell.innerHTML);
             });
             cell.addEventListener('dragover', (e) => e.preventDefault());
-            cell.addEventListener('dragenter', (e) => {
-                e.preventDefault();
-                cell.classList.add('drag-over');
-            });
-            cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+            cell.addEventListener('dragenter', (e) => cell.classList.add('drag-over'));
+            cell.addEventListener('dragleave', (e) => cell.classList.remove('drag-over'));
             cell.addEventListener('drop', function(e) {
                 e.preventDefault();
+                cell.classList.remove('drag-over');
                 if (draggedElement !== this) {
+                    // Swap atomico del contenuto
                     let temp = this.innerHTML;
                     this.innerHTML = draggedElement.innerHTML;
                     draggedElement.innerHTML = temp;
@@ -106,14 +92,13 @@
         });
     }
 
-    exportBtn.addEventListener('click', () => {
-        const table = document.getElementById('dataSheet');
-        const newWorksheet = XLSX.utils.table_to_sheet(table);
-        const newWorkbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Sheet1");
-        XLSX.writeFile(newWorkbook, "export_ordinato.xlsx");
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        const table = document.getElementById('targetTable');
+        const ws = XLSX.utils.table_to_sheet(table);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Dati");
+        XLSX.writeFile(wb, "permutazione_excel.xlsx");
     });
 </script>
-
 </body>
 </html>
