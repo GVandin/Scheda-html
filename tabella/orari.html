@@ -2,17 +2,17 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Orario Scolastico - Versione Integrale</title>
+    <title>Orario Scolastico - Protezione Giorno Libero</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
         .controls { text-align: center; margin-bottom: 20px; }
         table { border-collapse: collapse; margin: auto; background: white; border: 2px solid #333; }
-        td { border: 1px solid #ccc; width: 100px; height: 45px; text-align: center; font-size: 12px; }
+        td { border: 1px solid #ccc; width: 100px; height: 45px; text-align: center; font-size: 11px; }
         .slot { cursor: grab; background: #fff; }
         .drag-over { background: #fff9c4 !important; border: 2px solid #f1c40f; }
-        /* Evidenzia l'inizio di ogni docente per controllo visivo */
         .docente-start { border-top: 2px solid #333 !important; background: #e8f6f3; font-weight: bold; }
+        .giorno-libero-alert { color: #d32f2f; font-weight: bold; }
         button { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
@@ -34,7 +34,6 @@
         reader.onload = function(event) {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            // header: 1 e defval garantiscono che nessuna cella o riga venga saltata
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
             renderTable(jsonData);
         };
@@ -44,15 +43,11 @@
     function renderTable(data) {
         let html = '<table id="orarioTable"><tbody>';
         data.forEach((row, rIdx) => {
-            // Se la riga è completamente vuota, la saltiamo per non sballare i blocchi da 6
             if (row.every(cell => cell === "")) return;
-
             html += `<tr>`;
             for (let cIdx = 0; cIdx < 8; cIdx++) {
                 let val = String(row[cIdx] || "").trim();
                 let isSlot = cIdx >= 2;
-                
-                // Applichiamo una classe speciale alla prima riga di ogni docente (0, 6, 12...)
                 let cellClass = "";
                 if (rIdx % ORE === 0) cellClass = "docente-start ";
                 if (isSlot) cellClass += "slot";
@@ -69,8 +64,87 @@
         initDragDrop();
     }
 
+    // Funzione per verificare se un docente ha il giorno libero in una specifica colonna
+    function isGiornoLibero(table, rigaInizioBlocco, colIdx) {
+        for (let i = 0; i < ORE; i++) {
+            let contenuto = table.rows[rigaInizioBlocco + i].cells[colIdx].innerText.trim();
+            if (contenuto !== "" && contenuto !== " ") {
+                return false; // Ha almeno un'ora, non è giorno libero
+            }
+        }
+        return true; // Tutte le 6 ore sono vuote
+    }
+
     function initDragDrop() {
         const slots = document.querySelectorAll('.slot');
         const table = document.getElementById('orarioTable');
 
-        slots.
+        slots.forEach(slot => {
+            slot.addEventListener('dragstart', (e) => { draggedElement = slot; });
+            slot.addEventListener('dragover', e => e.preventDefault());
+            slot.addEventListener('dragenter', () => slot.classList.add('drag-over'));
+            slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+
+            slot.addEventListener('drop', function(e) {
+                e.preventDefault();
+                slot.classList.remove('drag-over');
+
+                const rStart = draggedElement.parentElement.rowIndex;
+                const cStart = parseInt(draggedElement.dataset.col);
+                const rEnd = this.parentElement.rowIndex;
+                const cEnd = parseInt(this.dataset.col);
+                const classeSpostata = draggedElement.innerText.trim();
+
+                if (!classeSpostata || classeSpostata === "" || classeSpostata === " ") return;
+
+                const oraRelativaPartenza = rStart % ORE;
+                const mioBloccoInizio = Math.floor(rStart / ORE) * ORE;
+
+                // 1. Cerchiamo il collega
+                let infoCollega = null;
+                for (let i = 0; i < table.rows.length; i++) {
+                    let suoBloccoInizio = Math.floor(i / ORE) * ORE;
+                    
+                    if (suoBloccoInizio !== mioBloccoInizio && table.rows[i].cells[cEnd].innerText.trim() === classeSpostata) {
+                        infoCollega = {
+                            suoBloccoInizio: suoBloccoInizio,
+                            cellaAttualeCollega: table.rows[i].cells[cEnd],
+                            rigaAttualeCollega: i
+                        };
+                        break;
+                    }
+                }
+
+                if (infoCollega) {
+                    // 2. CONTROLLO GIORNO LIBERO COLLEGA
+                    // Verifichiamo se il collega ha il giorno libero dove tu vuoi mandare la sua ora (cStart)
+                    // Il controllo va fatto sulla colonna di PARTENZA del collega (dove lui dovrà ricevere l'ora)
+                    if (isGiornoLibero(table, infoCollega.suoBloccoInizio, cStart)) {
+                        alert("⚠️ Azione negata! Il collega ha il GIORNO LIBERO in quel giorno. Non puoi spostare la sua ora lì.");
+                        return;
+                    }
+
+                    // 3. CONTROLLO COLLISIONE (Ora già occupata)
+                    let rigaSpecchioCollega = infoCollega.suoBloccoInizio + oraRelativaPartenza;
+                    let cellaSpecchioCollega = table.rows[rigaSpecchioCollega].cells[cStart];
+                    const contenutoOccupato = cellaSpecchioCollega.innerText.trim();
+
+                    if (contenutoOccupato !== "" && contenutoOccupato !== " ") {
+                        alert("⚠️ Orario già occupato! Il collega ha già [" + contenutoOccupato + "] nello slot di destinazione.");
+                        return;
+                    }
+
+                    // 4. ESECUZIONE SCAMBIO
+                    this.innerHTML = classeSpostata;
+                    draggedElement.innerHTML = "&nbsp;";
+                    cellaSpecchioCollega.innerHTML = classeSpostata;
+                    infoCollega.cellaAttualeCollega.innerHTML = "&nbsp;";
+                } else {
+                    alert("Classe " + classeSpostata + " non trovata in altri docenti.");
+                }
+            });
+        });
+    }
+</script>
+</body>
+</html>
