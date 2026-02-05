@@ -2,18 +2,20 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Gestore Orario - Scambio Protetto</title>
+    <title>Orario Scolastico - Manuale e Automatico</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #eceff1; padding: 20px; }
-        .toolbar { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        .toolbar { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; margin-bottom: 20px; }
         button { padding: 12px 24px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .btn-solve { background: #6200ea; color: white; }
         .btn-export { background: #2e7d32; color: white; }
         table { border-collapse: collapse; margin: 20px auto; background: white; border: 2px solid #263238; }
         td { border: 1px solid #cfd8dc; width: 95px; height: 40px; text-align: center; font-size: 12px; }
+        .slot { cursor: grab; background: #fff; }
         .docente-start { border-top: 3px solid #263238 !important; background: #f1f8e9; font-weight: bold; }
-        #log { max-width: 900px; margin: 10px auto; background: #263238; color: #81c784; padding: 15px; border-radius: 5px; font-family: monospace; height: 120px; overflow-y: auto; }
+        .drag-over { background: #fff59d !important; border: 2px solid #fbc02d; }
+        #log { max-width: 900px; margin: 10px auto; background: #263238; color: #81c784; padding: 15px; border-radius: 5px; font-family: monospace; height: 100px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -21,11 +23,11 @@
 <div class="toolbar">
     <h2>Pannello di Controllo Orario</h2>
     <input type="file" id="fileInput" accept=".xlsx, .xls" /><br><br>
-    <button id="solveBtn" class="btn-solve">🚀 Tenta Permutazioni per Sabato (Copertura Obbligatoria)</button>
+    <button id="solveBtn" class="btn-solve">🚀 Tenta Permutazioni Automatiche</button>
     <button id="exportBtn" class="btn-export">💾 Scarica Excel</button>
 </div>
 
-<div id="log">Carica il file per iniziare...</div>
+<div id="log">Trascina le celle per modifiche manuali o usa il tasto automatico...</div>
 <div id="tableContainer"></div>
 
 <script>
@@ -46,7 +48,6 @@
             const workbook = XLSX.read(data, { type: 'array' });
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
             renderTable(jsonData);
-            log("File pronto.");
         };
         reader.readAsArrayBuffer(file);
     });
@@ -57,103 +58,137 @@
             html += `<tr>`;
             for (let cIdx = 0; cIdx < 8; cIdx++) {
                 let val = String(row[cIdx] || "").trim();
+                let isSlot = cIdx >= 2;
                 let cellClass = (rIdx % ORE === 0) ? "docente-start " : "";
-                html += `<td class="${cellClass}" data-col="${cIdx}">${val === "" ? "&nbsp;" : val}</td>`;
+                if (isSlot) cellClass += "slot";
+                html += `<td class="${cellClass}" ${isSlot ? 'draggable="true"' : ''} data-col="${cIdx}">${val === "" ? "&nbsp;" : val}</td>`;
             }
             html += '</tr>';
         });
         document.getElementById('tableContainer').innerHTML = html + '</tbody></table>';
+        initDragDrop();
     }
 
+    // --- LOGICA MANUALE (DRAG & DROP) ---
+    function initDragDrop() {
+        const slots = document.querySelectorAll('.slot');
+        const table = document.getElementById('orarioTable');
+
+        slots.forEach(slot => {
+            slot.addEventListener('dragstart', (e) => { draggedElement = slot; });
+            slot.addEventListener('dragover', e => e.preventDefault());
+            slot.addEventListener('dragenter', () => slot.classList.add('drag-over'));
+            slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+            slot.addEventListener('drop', function(e) {
+                e.preventDefault();
+                slot.classList.remove('drag-over');
+                effettuaScambioLecito(draggedElement, this);
+            });
+        });
+    }
+
+    function effettuaScambioLecito(cellaPartenza, cellaArrivo) {
+        const table = document.getElementById('orarioTable');
+        const rStart = cellaPartenza.parentElement.rowIndex;
+        const cStart = parseInt(cellaPartenza.dataset.col);
+        const rEnd = cellaArrivo.parentElement.rowIndex;
+        const cEnd = parseInt(cellaArrivo.dataset.col);
+        const classe = cellaPartenza.innerText.trim();
+
+        if (classe === "" || classe === " ") return;
+
+        const mioBloccoInizio = Math.floor(rStart / ORE) * ORE;
+        const oraRelativa = rStart % ORE;
+
+        // Cerca il collega che ha la classe nello slot di arrivo
+        let infoCollega = trovaCollegaConClasse(classe, rEnd, cEnd, mioBloccoInizio);
+
+        if (infoCollega) {
+            let rigaSpecchioCollega = infoCollega.suoBloccoInizio + oraRelativa;
+            let cellaSpecchioCollega = table.rows[rigaSpecchioCollega].cells[cStart];
+
+            if (puoRicevereOra(infoCollega.suoBloccoInizio, cStart, cellaSpecchioCollega, mioBloccoInizio)) {
+                cellaArrivo.innerHTML = classe;
+                cellaPartenza.innerHTML = "&nbsp;";
+                cellaSpecchioCollega.innerHTML = classe;
+                infoCollega.cellaAttuale.innerHTML = "&nbsp;";
+                log(`Manuale: Scambiata ${classe} con blocco ${infoCollega.suoBloccoInizio/ORE + 1}`);
+            } else {
+                alert("Spostamento manuale negato: Giorno libero o cella occupata per il collega.");
+            }
+        } else {
+            alert("Spostamento manuale negato: Nessun collega trovato per garantire la copertura della classe.");
+        }
+    }
+
+    // --- LOGICA AUTOMATICA (Tasto Viola) ---
     document.getElementById('solveBtn').addEventListener('click', () => {
         const table = document.getElementById('orarioTable');
         if (!table) return;
+        log("Tentativo automatico per Sabato 4ª-6ª...");
+        for (let r = 3; r <= 5; r++) {
+            let cella = table.rows[r].cells[COL_SABATO];
+            let classe = cella.innerText.trim();
+            if (classe !== "" && classe !== " ") tentaAutomazione(r, COL_SABATO);
+        }
+    });
 
-        log("Analisi sabato 4ª-6ª ora...");
-        let risolte = 0;
-
-        // Iteriamo sulle tue ore del sabato (riga 3, 4, 5 del primo blocco)
-        for (let rPartenza = 3; rPartenza <= 5; rPartenza++) {
-            let classe = table.rows[rPartenza].cells[COL_SABATO].innerText.trim();
-            if (classe === "" || classe === " ") continue;
-
-            let successo = false;
-            // Cerchiamo un buco nel tuo orario (LUN-VEN)
-            for (let cArrivo = 2; cArrivo <= 6; cArrivo++) {
-                for (let rOffset = 0; rOffset < ORE; rOffset++) {
-                    if (successo) break;
-
-                    let rArrivo = rOffset;
-                    let cellaDestMIA = table.rows[rArrivo].cells[cArrivo];
-
-                    // Se io ho un buco libero in quel momento
-                    if (cellaDestMIA.innerText.trim() === "" || cellaDestMIA.innerText.trim() === " ") {
-                        
-                        // ORA IL CONTROLLO CRITICO: Chi ha la classe in quel momento?
-                        let infoCollega = trovaCollegaConClasse(classe, rArrivo, cArrivo);
-
-                        if (infoCollega) {
-                            // Verifichiamo se il collega può "venire" al sabato al mio posto
-                            let rigaSpecchioCollega = infoCollega.suoBloccoInizio + (rPartenza % ORE);
-                            let cellaSpecchioCollega = table.rows[rigaSpecchioCollega].cells[COL_SABATO];
-
-                            // Verifichiamo Giorno Libero e Occupazione
-                            if (puoRicevereOra(infoCollega.suoBloccoInizio, COL_SABATO, cellaSpecchioCollega)) {
-                                // ESEGUIAMO LO SCAMBIO INCROCIATO
-                                cellaDestMIA.innerHTML = classe;
-                                table.rows[rPartenza].cells[COL_SABATO].innerHTML = "&nbsp;";
-                                
-                                cellaSpecchioCollega.innerHTML = classe;
-                                infoCollega.cellaAttuale.innerHTML = "&nbsp;";
-                                
-                                log(`OK: ${classe} spostata. Scambiato turno con docente al blocco ${infoCollega.suoBloccoInizio/ORE + 1}`);
-                                successo = true;
-                                risolte++;
-                            }
+    function tentaAutomazione(rP, cP) {
+        const table = document.getElementById('orarioTable');
+        const classe = table.rows[rP].cells[cP].innerText.trim();
+        for (let cA = 2; cA <= 6; cA++) {
+            for (let rO = 0; rO < ORE; rO++) {
+                let cellaDest = table.rows[rO].cells[cA];
+                if (cellaDest.innerText.trim() === "" || cellaDest.innerText.trim() === " ") {
+                    let infoC = trovaCollegaConClasse(classe, rO, cA, 0);
+                    if (infoC) {
+                        let rSpecchio = infoC.suoBloccoInizio + (rP % ORE);
+                        let cellaSpecchio = table.rows[rSpecchio].cells[cP];
+                        if (puoRicevereOra(infoC.suoBloccoInizio, cP, cellaSpecchio, 0)) {
+                            cellaDest.innerHTML = classe;
+                            table.rows[rP].cells[cP].innerHTML = "&nbsp;";
+                            cellaSpecchio.innerHTML = classe;
+                            infoC.cellaAttuale.innerHTML = "&nbsp;";
+                            log(`Auto: Liberato Sabato per ${classe}`);
+                            return true;
                         }
                     }
                 }
             }
         }
-        log(`Finito. Ore sabato liberate: ${risolte}`);
-    });
+        return false;
+    }
 
-    function trovaCollegaConClasse(classe, riga, col) {
+    // --- UTILITY ---
+    function trovaCollegaConClasse(classe, r, c, mioInizio) {
         const table = document.getElementById('orarioTable');
-        // Saltiamo il primo blocco (il tuo)
-        for (let i = ORE; i < table.rows.length; i++) {
-            if (table.rows[i].cells[col].innerText.trim() === classe) {
-                return {
-                    suoBloccoInizio: Math.floor(i / ORE) * ORE,
-                    cellaAttuale: table.rows[i].cells[col]
-                };
+        for (let i = 0; i < table.rows.length; i++) {
+            let inizio = Math.floor(i / ORE) * ORE;
+            if (inizio !== mioInizio && table.rows[i].cells[c].innerText.trim() === classe) {
+                return { suoBloccoInizio: inizio, cellaAttuale: table.rows[i].cells[c] };
             }
         }
         return null;
     }
 
-    function puoRicevereOra(inizioBlocco, col, cellaTarget) {
+    function puoRicevereOra(inizioBlocco, col, cellaTarget, mioInizio) {
         const table = document.getElementById('orarioTable');
-        // 1. Non deve essere il suo giorno libero
-        let haOreQuelGiorno = false;
+        // Se è la mia sottotabella, posso mangiarmi il giorno libero
+        if (inizioBlocco === mioInizio) return true; 
+
+        let haOre = false;
         for (let i = 0; i < ORE; i++) {
             if (table.rows[inizioBlocco + i].cells[col].innerText.trim() !== "" && 
-                table.rows[inizioBlocco + i].cells[col].innerText.trim() !== " ") {
-                haOreQuelGiorno = true;
-            }
+                table.rows[inizioBlocco + i].cells[col].innerText.trim() !== " ") haOre = true;
         }
-        if (!haOreQuelGiorno) return false;
-
-        // 2. La cella deve essere vuota
-        let contenuto = cellaTarget.innerText.trim();
-        return (contenuto === "" || contenuto === " ");
+        return haOre && (cellaTarget.innerText.trim() === "" || cellaTarget.innerText.trim() === " ");
     }
 
     document.getElementById('exportBtn').addEventListener('click', () => {
         const ws = XLSX.utils.table_to_sheet(document.getElementById('orarioTable'));
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Orario_Bilanciato");
-        XLSX.writeFile(wb, "orario_risolto.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Orario");
+        XLSX.writeFile(wb, "orario_finale.xlsx");
     });
 </script>
 </body>
