@@ -2,16 +2,17 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Orario Scolastico - Blocchi 6 Righe</title>
+    <title>Orario Scolastico - Versione Integrale</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
         .controls { text-align: center; margin-bottom: 20px; }
-        table { border-collapse: collapse; margin: auto; background: white; }
-        td, th { border: 1px solid #ccc; width: 100px; height: 40px; text-align: center; font-size: 12px; }
-        .slot { cursor: grab; }
+        table { border-collapse: collapse; margin: auto; background: white; border: 2px solid #333; }
+        td { border: 1px solid #ccc; width: 100px; height: 45px; text-align: center; font-size: 12px; }
+        .slot { cursor: grab; background: #fff; }
         .drag-over { background: #fff9c4 !important; border: 2px solid #f1c40f; }
-        .docente-row { background: #e8f6f3; font-weight: bold; }
+        /* Evidenzia l'inizio di ogni docente per controllo visivo */
+        .docente-start { border-top: 2px solid #333 !important; background: #e8f6f3; font-weight: bold; }
         button { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
@@ -19,13 +20,13 @@
 
 <div class="controls">
     <input type="file" id="fileInput" accept=".xlsx, .xls" />
-    <button id="exportBtn" style="display:none;">💾 Esporta Excel</button>
+    <button id="exportBtn" style="display:none;">💾 Esporta Orario</button>
 </div>
 <div id="tableContainer"></div>
 
 <script>
     let draggedElement = null;
-    const ORE = 6; // Ogni docente occupa esattamente 6 righe
+    const ORE = 6; 
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -33,7 +34,7 @@
         reader.onload = function(event) {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            // Leggiamo i dati RAW senza saltare nessuna riga
+            // header: 1 e defval garantiscono che nessuna cella o riga venga saltata
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
             renderTable(jsonData);
         };
@@ -43,18 +44,27 @@
     function renderTable(data) {
         let html = '<table id="orarioTable"><tbody>';
         data.forEach((row, rIdx) => {
+            // Se la riga è completamente vuota, la saltiamo per non sballare i blocchi da 6
+            if (row.every(cell => cell === "")) return;
+
             html += `<tr>`;
             for (let cIdx = 0; cIdx < 8; cIdx++) {
                 let val = String(row[cIdx] || "").trim();
                 let isSlot = cIdx >= 2;
-                // Un docente inizia ogni 6 righe (0, 6, 12...)
-                let isDocenteName = (cIdx === 0 && rIdx % ORE === 0);
-                let classes = isSlot ? "slot" : (isDocenteName ? "docente-row" : "");
-                html += `<td class="${classes}" ${isSlot ? 'draggable="true"' : ''} data-col="${cIdx}">${val === "" ? "&nbsp;" : val}</td>`;
+                
+                // Applichiamo una classe speciale alla prima riga di ogni docente (0, 6, 12...)
+                let cellClass = "";
+                if (rIdx % ORE === 0) cellClass = "docente-start ";
+                if (isSlot) cellClass += "slot";
+
+                html += `<td class="${cellClass}" ${isSlot ? 'draggable="true"' : ''} data-col="${cIdx}">
+                            ${val === "" ? "&nbsp;" : val}
+                         </td>`;
             }
             html += '</tr>';
         });
-        document.getElementById('tableContainer').innerHTML = html + '</tbody></table>';
+        html += '</tbody></table>';
+        document.getElementById('tableContainer').innerHTML = html;
         document.getElementById('exportBtn').style.display = 'inline-block';
         initDragDrop();
     }
@@ -63,63 +73,4 @@
         const slots = document.querySelectorAll('.slot');
         const table = document.getElementById('orarioTable');
 
-        slots.forEach(slot => {
-            slot.addEventListener('dragstart', (e) => { draggedElement = slot; });
-            slot.addEventListener('dragover', e => e.preventDefault());
-            slot.addEventListener('dragenter', () => slot.classList.add('drag-over'));
-            slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
-
-            slot.addEventListener('drop', function(e) {
-                e.preventDefault();
-                slot.classList.remove('drag-over');
-
-                const rStart = draggedElement.parentElement.rowIndex;
-                const cStart = parseInt(draggedElement.dataset.col);
-                const rEnd = this.parentElement.rowIndex;
-                const cEnd = parseInt(this.dataset.col);
-                const classeSpostata = draggedElement.innerText.trim();
-
-                if (!classeSpostata || classeSpostata === "" || classeSpostata === " ") return;
-
-                // Calcolo indici basato su 0 (Zero-based)
-                const oraRelativaPartenza = rStart % ORE;
-                const mioBloccoInizio = Math.floor(rStart / ORE) * ORE;
-
-                let infoCollega = null;
-                for (let i = 0; i < table.rows.length; i++) {
-                    let suoBloccoInizio = Math.floor(i / ORE) * ORE;
-                    // Cerchiamo la classe nello stesso slot di arrivo (cEnd) ma in un altro docente
-                    if (suoBloccoInizio !== mioBloccoInizio && table.rows[i].cells[cEnd].innerText.trim() === classeSpostata) {
-                        
-                        let rigaSpecchioCollega = suoBloccoInizio + oraRelativaPartenza;
-                        let cellaSpecchioCollega = table.rows[rigaSpecchioCollega].cells[cStart];
-                        
-                        infoCollega = {
-                            cellaPartenzaCollega: table.rows[i].cells[cEnd],
-                            cellaSpecchioCollega: cellaSpecchioCollega
-                        };
-                        break;
-                    }
-                }
-
-                if (infoCollega) {
-                    const contenutoOccupato = infoCollega.cellaSpecchioCollega.innerText.trim();
-                    if (contenutoOccupato !== "" && contenutoOccupato !== " ") {
-                        alert("⚠️ Orario già occupato! Il collega ha già [" + contenutoOccupato + "] nello slot di destinazione.");
-                        return;
-                    }
-
-                    // Esecuzione Scambio
-                    this.innerHTML = classeSpostata;
-                    draggedElement.innerHTML = "&nbsp;";
-                    infoCollega.cellaSpecchioCollega.innerHTML = classeSpostata;
-                    infoCollega.cellaPartenzaCollega.innerHTML = "&nbsp;";
-                } else {
-                    alert("Classe " + classeSpostata + " non trovata in altri docenti alla posizione di arrivo.");
-                }
-            });
-        });
-    }
-</script>
-</body>
-</html>
+        slots.
