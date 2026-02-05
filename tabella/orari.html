@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Excel Swap & Export</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; text-align: center; background-color: #f4f7f6; }
+        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: inline-block; margin-bottom: 20px; }
+        table { border-collapse: collapse; margin: 20px auto; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        td {
+            width: 130px; height: 50px;
+            border: 1px solid #ddd;
+            text-align: center;
+            cursor: grab;
+            padding: 10px;
+            color: #333;
+        }
+        td.drag-over { background-color: #d1e7ff; border: 2px dashed #007bff; }
+        button { 
+            padding: 10px 20px; cursor: pointer; background-color: #28a745; 
+            color: white; border: none; border-radius: 4px; font-weight: bold; margin-left: 10px;
+        }
+        button:hover { background-color: #218838; }
+        input[type="file"] { cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <input type="file" id="fileInput" accept=".xlsx, .xls" />
+        <button id="exportBtn" style="display:none;">📥 Esporta in Excel</button>
+    </div>
+
+    <div id="tableContainer"></div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const exportBtn = document.getElementById('exportBtn');
+    const tableContainer = document.getElementById('tableContainer');
+    let draggedElement = null;
+
+    // Lettura File Excel
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            generateTable(jsonData);
+            exportBtn.style.display = 'inline-block'; // Mostra il tasto export
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    // Generazione Tabella HTML
+    function generateTable(data) {
+        let html = '<table id="dataSheet">';
+        data.forEach(row => {
+            html += '<tr>';
+            row.forEach(cellValue => {
+                let val = cellValue !== undefined ? cellValue : "";
+                html += `<td draggable="true">${val}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</table>';
+        tableContainer.innerHTML = html;
+        attachDragEvents();
+    }
+
+    // Gestione Drag & Drop (Swap)
+    function attachDragEvents() {
+        const cells = document.querySelectorAll('td');
+        cells.forEach(cell => {
+            cell.addEventListener('dragstart', (e) => {
+                draggedElement = cell;
+                cell.style.opacity = '0.4';
+            });
+            cell.addEventListener('dragend', () => {
+                cell.style.opacity = '1';
+                cells.forEach(c => c.classList.remove('drag-over'));
+            });
+            cell.addEventListener('dragover', (e) => e.preventDefault());
+            cell.addEventListener('dragenter', () => cell.classList.add('drag-over'));
+            cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+            cell.addEventListener('drop', function() {
+                if (draggedElement !== this) {
+                    let temp = this.innerHTML;
+                    this.innerHTML = draggedElement.innerHTML;
+                    draggedElement.innerHTML = temp;
+                }
+            });
+        });
+    }
+
+    // Esportazione in Excel
+    exportBtn.addEventListener('click', () => {
+        const table = document.getElementById('dataSheet');
+        if(!table) return;
+
+        // Trasforma la tabella HTML attuale in un foglio di lavoro
+        const newWorksheet = XLSX.utils.table_to_sheet(table);
+        const newWorkbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, "Dati Permutati");
+
+        // Scarica il file
+        XLSX.writeFile(newWorkbook, "tabella_modificata.xlsx");
+    });
+</script>
+
+</body>
+</html>
