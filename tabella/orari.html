@@ -2,31 +2,31 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Scambio Orario Simmetrico</title>
+    <title>Scambio Orario Intelligente - Ricerca Collega</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-        table { border-collapse: collapse; background: white; margin: auto; }
-        td, th { border: 1px solid #999; width: 100px; height: 50px; text-align: center; }
-        th { background: #2c3e50; color: white; }
-        .docente-header { background: #dfe6e9; font-weight: bold; }
-        .drop-zone { cursor: grab; }
-        .drag-over { background: #74b9ff !important; }
         .controls { text-align: center; margin-bottom: 20px; }
-        button { padding: 10px 20px; background: #27ae60; color: white; border: none; cursor: pointer; }
+        table { border-collapse: collapse; margin: auto; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        td, th { border: 1px solid #ccc; width: 110px; height: 45px; text-align: center; font-size: 12px; }
+        th { background: #2c3e50; color: white; }
+        .docente-row { background: #e8f6f3; font-weight: bold; }
+        .slot { cursor: grab; }
+        .drag-over { background: #fff9c4 !important; border: 2px solid #f1c40f; }
+        button { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="controls">
     <input type="file" id="fileInput" accept=".xlsx, .xls" />
-    <button id="exportBtn" style="display:none;">Esporta Excel</button>
+    <button id="exportBtn" style="display:none;">💾 Esporta Excel Aggiornato</button>
 </div>
 <div id="tableContainer"></div>
 
 <script>
     let draggedElement = null;
-    const ORE_PER_DOCENTE = 6; // Modifica qui se i blocchi sono diversi
+    const ORE = 6; // Numero di ore per ogni blocco docente
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -42,93 +42,96 @@
     });
 
     function renderTable(data) {
-        let html = '<table id="mainTable"><thead><tr><th>Docente</th><th>Ora</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Gio</th><th>Ven</th><th>Sab</th></tr></thead><tbody>';
-        
+        let html = '<table id="orarioTable"><thead><tr><th>Docente</th><th>Ora</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Gio</th><th>Ven</th><th>Sab</th></tr></thead><tbody>';
         data.forEach((row, rIdx) => {
-            if (rIdx === 0) return; // Salta intestazione se presente
-            html += `<tr data-row-index="${rIdx}">`;
+            if (rIdx === 0) return;
+            html += `<tr data-r="${rIdx}">`;
             for (let cIdx = 0; cIdx < 8; cIdx++) {
-                let content = row[cIdx] || "";
-                let isDraggable = (cIdx >= 2);
-                let attr = isDraggable ? `draggable="true" class="drop-zone"` : (cIdx === 0 && content !== "" ? `class="docente-header"` : "");
-                html += `<td ${attr} data-col="${cIdx}">${content}</td>`;
+                let val = row[cIdx] || "";
+                let isSlot = cIdx >= 2;
+                let classes = isSlot ? "slot" : (cIdx === 0 && val !== "" ? "docente-row" : "");
+                html += `<td class="${classes}" ${isSlot ? 'draggable="true"' : ''} data-c="${cIdx}">${val === "" ? "&nbsp;" : val}</td>`;
             }
             html += '</tr>';
         });
-        
         document.getElementById('tableContainer').innerHTML = html + '</tbody></table>';
-        document.getElementById('exportBtn').style.display = 'inline';
-        setupEvents();
+        document.getElementById('exportBtn').style.display = 'inline-block';
+        initDragDrop();
     }
 
-    function setupEvents() {
-        const cells = document.querySelectorAll('.drop-zone');
-        cells.forEach(cell => {
-            cell.addEventListener('dragstart', (e) => {
-                draggedElement = cell;
-                cell.style.opacity = '0.4';
+    function initDragDrop() {
+        const slots = document.querySelectorAll('.slot');
+        const table = document.getElementById('orarioTable');
+
+        slots.forEach(slot => {
+            slot.addEventListener('dragstart', (e) => {
+                draggedElement = slot;
+                slot.style.opacity = '0.4';
             });
 
-            cell.addEventListener('dragend', () => {
-                cell.style.opacity = '1';
-                cells.forEach(c => c.classList.remove('drag-over'));
+            slot.addEventListener('dragend', () => {
+                slot.style.opacity = '1';
+                slots.forEach(s => s.classList.remove('drag-over'));
             });
 
-            cell.addEventListener('dragover', e => e.preventDefault());
-            cell.addEventListener('dragenter', e => cell.classList.add('drag-over'));
-            cell.addEventListener('dragleave', e => cell.classList.remove('drag-over'));
+            slot.addEventListener('dragover', e => e.preventDefault());
+            slot.addEventListener('dragenter', () => slot.classList.add('drag-over'));
+            slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
 
-            cell.addEventListener('drop', function(e) {
+            slot.addEventListener('drop', function(e) {
                 e.preventDefault();
                 if (draggedElement === this) return;
 
-                const table = document.getElementById('mainTable');
-                
-                // 1. Identifica coordinate di partenza
-                const fromRowIdx = parseInt(draggedElement.parentElement.getAttribute('data-row-index'));
-                const fromColIdx = parseInt(draggedElement.getAttribute('data-col'));
-                
-                // 2. Identifica coordinate di arrivo
-                const toRowIdx = parseInt(this.parentElement.getAttribute('data-row-index'));
-                const toColIdx = parseInt(this.getAttribute('data-col'));
+                const rPartenza = draggedElement.parentElement.rowIndex;
+                const cPartenza = parseInt(draggedElement.dataset.c);
+                const rArrivo = this.parentElement.rowIndex;
+                const cArrivo = parseInt(this.dataset.c);
 
-                // 3. Calcola i blocchi docenti (ogni 6 righe)
-                // Usiamo (index - 1) perché la riga 0 dell'array è l'intestazione
-                const fromDocenteBase = Math.floor((fromRowIdx - 1) / ORE_PER_DOCENTE) * ORE_PER_DOCENTE + 1;
-                const toDocenteBase = Math.floor((toRowIdx - 1) / ORE_PER_DOCENTE) * ORE_PER_DOCENTE + 1;
-                
-                const fromOraRelativa = (fromRowIdx - 1) % ORE_PER_DOCENTE;
-                const toOraRelativa = (toRowIdx - 1) % ORE_PER_DOCENTE;
+                const classeSpostata = draggedElement.innerText.trim();
+                if (!classeSpostata || classeSpostata === "") return;
 
-                // 4. TROVA LA CELLA SIMMETRICA
-                // Il collega deve ricevere la mia ora (fromOraRelativa) nel mio giorno (fromColIdx)
-                // Ma nel SUO blocco docente.
-                const cellaSimmetricaDelCollega = table.rows[toDocenteBase + fromOraRelativa].cells[fromColIdx];
+                // 1. Sposto la MIA classe nel MIO nuovo slot
+                this.innerHTML = classeSpostata;
+                draggedElement.innerHTML = "&nbsp;";
 
-                // SCAMBIO LOGICO SULLA GRIGLIA
-                // Quello che io sposto (es. 5E Sabato) va nella cella di arrivo (Venerdì IV)
-                // Quello che era nella cella di arrivo (Bressanelli Venerdì IV) va nella cella simmetrica
-                // del collega nel momento in cui io ero impegnato (Sabato III)
-                
-                let tempSorgente = draggedElement.innerHTML;
-                let tempDestinazione = this.innerHTML;
+                // 2. CERCO CHI ALTRO AVEVA QUELLA CLASSE IN QUEL MOMENTO
+                // Calcoliamo l'ora relativa (es. 1ª, 2ª...) per trovare la corrispondenza
+                const oraRelativaPartenza = (rPartenza - 1) % ORE;
+                const oraRelativaArrivo = (rArrivo - 1) % ORE;
 
-                this.innerHTML = tempSorgente; // Metto la mia ora al collega
-                draggedElement.innerHTML = ""; // Svuoto la mia vecchia posizione
-                
-                // La classe che c'era prima al venerdì (Bressanelli) torna al sabato del mio blocco? 
-                // No, deve andare al Sabato del blocco Bressanelli.
-                cellaSimmetricaDelCollega.innerHTML = tempDestinazione;
+                for (let i = 1; i < table.rows.length; i++) {
+                    let rigaAttuale = table.rows[i];
+                    let cellaCorrente = rigaAttuale.cells[cArrivo];
+
+                    // Se trovo la stessa classe in una sottotabella che NON è la mia
+                    // (Controllo che la riga non appartenga al mio blocco docente)
+                    const mioBloccoInizio = Math.floor((rPartenza - 1) / ORE) * ORE + 1;
+                    const suoBloccoInizio = Math.floor((i - 1) / ORE) * ORE + 1;
+
+                    if (mioBloccoInizio !== suoBloccoInizio && cellaCorrente.innerText.trim() === classeSpostata) {
+                        
+                        // 3. SPOSTO L'ORA DEL COLLEGA
+                        // La sua ora si sposta dalla posizione di arrivo (cArrivo) 
+                        // alla posizione di partenza corrispondente (cPartenza) nel SUO blocco
+                        let cellaDestinazioneCollega = table.rows[suoBloccoInizio + oraRelativaPartenza].cells[cPartenza];
+                        
+                        cellaDestinazioneCollega.innerHTML = classeSpostata;
+                        cellaCorrente.innerHTML = "&nbsp;";
+                        
+                        console.log("Scambio effettuato con il collega al blocco riga: " + suoBloccoInizio);
+                        break; // Trovato il collega, esco dal ciclo
+                    }
+                }
             });
         });
     }
 
     document.getElementById('exportBtn').addEventListener('click', () => {
-        const table = document.getElementById('mainTable');
+        const table = document.getElementById('orarioTable');
         const ws = XLSX.utils.table_to_sheet(table);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Orario_Scambiato");
-        XLSX.writeFile(wb, "orario_simmetrico.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, "Orario_Aggiornato");
+        XLSX.writeFile(wb, "orario_scambio_classi.xlsx");
     });
 </script>
 </body>
