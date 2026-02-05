@@ -2,35 +2,41 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Orario Scolastico - Algoritmo Permutazioni</title>
+    <title>Gestore Orario - Scambio Protetto</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-        .controls { text-align: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; }
-        table { border-collapse: collapse; margin: auto; background: white; border: 2px solid #333; }
-        td { border: 1px solid #ccc; width: 90px; height: 35px; text-align: center; font-size: 11px; }
-        .slot { cursor: grab; }
-        .docente-start { border-top: 2px solid #333 !important; background: #e8f6f3; }
-        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        body { font-family: 'Segoe UI', sans-serif; background: #eceff1; padding: 20px; }
+        .toolbar { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        button { padding: 12px 24px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .btn-solve { background: #6200ea; color: white; }
-        .btn-export { background: #27ae60; color: white; }
-        #log { max-width: 800px; margin: 20px auto; font-size: 12px; color: #555; height: 100px; overflow-y: scroll; background: #eee; padding: 10px; }
+        .btn-export { background: #2e7d32; color: white; }
+        table { border-collapse: collapse; margin: 20px auto; background: white; border: 2px solid #263238; }
+        td { border: 1px solid #cfd8dc; width: 95px; height: 40px; text-align: center; font-size: 12px; }
+        .docente-start { border-top: 3px solid #263238 !important; background: #f1f8e9; font-weight: bold; }
+        #log { max-width: 900px; margin: 10px auto; background: #263238; color: #81c784; padding: 15px; border-radius: 5px; font-family: monospace; height: 120px; overflow-y: auto; }
     </style>
 </head>
 <body>
 
-<div class="controls">
-    <input type="file" id="fileInput" accept=".xlsx, .xls" />
-    <button id="solveBtn" class="btn-solve" style="display:none;">🚀 Tenta Permutazioni per Sabato</button>
-    <button id="exportBtn" class="btn-export" style="display:none;">💾 Esporta Excel</button>
+<div class="toolbar">
+    <h2>Pannello di Controllo Orario</h2>
+    <input type="file" id="fileInput" accept=".xlsx, .xls" /><br><br>
+    <button id="solveBtn" class="btn-solve">🚀 Tenta Permutazioni per Sabato (Copertura Obbligatoria)</button>
+    <button id="exportBtn" class="btn-export">💾 Scarica Excel</button>
 </div>
-<div id="log">Benvenuto. Carica l'orario per iniziare.</div>
+
+<div id="log">Carica il file per iniziare...</div>
 <div id="tableContainer"></div>
 
 <script>
     let draggedElement = null;
     const ORE = 6; 
     const COL_SABATO = 7;
+
+    function log(msg) {
+        const l = document.getElementById('log');
+        l.innerHTML = `> ${msg}<br>` + l.innerHTML;
+    }
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -40,8 +46,7 @@
             const workbook = XLSX.read(data, { type: 'array' });
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
             renderTable(jsonData);
-            document.getElementById('solveBtn').style.display = 'inline-block';
-            document.getElementById('exportBtn').style.display = 'inline-block';
+            log("File pronto.");
         };
         reader.readAsArrayBuffer(file);
     });
@@ -49,115 +54,107 @@
     function renderTable(data) {
         let html = '<table id="orarioTable"><tbody>';
         data.forEach((row, rIdx) => {
-            if (row.every(cell => cell === "")) return;
             html += `<tr>`;
             for (let cIdx = 0; cIdx < 8; cIdx++) {
                 let val = String(row[cIdx] || "").trim();
-                let isSlot = cIdx >= 2;
                 let cellClass = (rIdx % ORE === 0) ? "docente-start " : "";
-                if (isSlot) cellClass += "slot";
-                html += `<td class="${cellClass}" ${isSlot ? 'draggable="true"' : ''} data-col="${cIdx}">${val === "" ? "&nbsp;" : val}</td>`;
+                html += `<td class="${cellClass}" data-col="${cIdx}">${val === "" ? "&nbsp;" : val}</td>`;
             }
             html += '</tr>';
         });
         document.getElementById('tableContainer').innerHTML = html + '</tbody></table>';
-        initDragDrop();
     }
-
-    function log(msg) {
-        const l = document.getElementById('log');
-        l.innerHTML += `> ${msg}<br>`;
-        l.scrollTop = l.scrollHeight;
-    }
-
-    // --- LOGICA DI RISOLUZIONE AUTOMATICA ---
 
     document.getElementById('solveBtn').addEventListener('click', () => {
-        log("Inizio tentativo di liberazione sabato ore 4, 5, 6...");
         const table = document.getElementById('orarioTable');
-        
-        // Proviamo a liberare le righe 3, 4, 5 (4ª, 5ª, 6ª ora) del primo docente (righe index 0-5)
-        for (let r = 3; r <= 5; r++) {
-            let cella = table.rows[r].cells[COL_SABATO];
-            let classe = cella.innerText.trim();
-            
-            if (classe !== "" && classe !== " ") {
-                log(`Tento di spostare ${classe} dal sabato ora ${r+1}...`);
-                if (!tentaSpostamento(r, COL_SABATO)) {
-                    log(`Impossibile spostare automaticamente ${classe}.`);
-                } else {
-                    log(`Spostata con successo!`);
-                }
-            }
-        }
-    });
+        if (!table) return;
 
-    function tentaSpostamento(rOrigine, cOrigine) {
-        const table = document.getElementById('orarioTable');
-        const classe = table.rows[rOrigine].cells[cOrigine].innerText.trim();
-        const mioBloccoInizio = Math.floor(rOrigine / ORE) * ORE;
+        log("Analisi sabato 4ª-6ª ora...");
+        let risolte = 0;
 
-        // Cerchiamo un buco libero in un altro giorno per lo stesso docente (te stesso)
-        for (let cTarget = 2; cTarget < 8; cTarget++) {
-            for (let rOffset = 0; rOffset < ORE; rOffset++) {
-                let rTarget = mioBloccoInizio + rOffset;
-                
-                // Non deve essere sabato e non deve essere lo slot attuale
-                if (cTarget === COL_SABATO) continue; 
-                
-                let cellaDest = table.rows[rTarget].cells[cTarget];
-                if (cellaDest.innerText.trim() === "" || cellaDest.innerText.trim() === " ") {
-                    
-                    // Trovato un buco nel tuo orario. Ma il collega che ha la 5E in quel momento può riceverla?
-                    if (eseguiScambioSePossibile(rOrigine, cOrigine, rTarget, cTarget)) {
-                        return true;
+        // Iteriamo sulle tue ore del sabato (riga 3, 4, 5 del primo blocco)
+        for (let rPartenza = 3; rPartenza <= 5; rPartenza++) {
+            let classe = table.rows[rPartenza].cells[COL_SABATO].innerText.trim();
+            if (classe === "" || classe === " ") continue;
+
+            let successo = false;
+            // Cerchiamo un buco nel tuo orario (LUN-VEN)
+            for (let cArrivo = 2; cArrivo <= 6; cArrivo++) {
+                for (let rOffset = 0; rOffset < ORE; rOffset++) {
+                    if (successo) break;
+
+                    let rArrivo = rOffset;
+                    let cellaDestMIA = table.rows[rArrivo].cells[cArrivo];
+
+                    // Se io ho un buco libero in quel momento
+                    if (cellaDestMIA.innerText.trim() === "" || cellaDestMIA.innerText.trim() === " ") {
+                        
+                        // ORA IL CONTROLLO CRITICO: Chi ha la classe in quel momento?
+                        let infoCollega = trovaCollegaConClasse(classe, rArrivo, cArrivo);
+
+                        if (infoCollega) {
+                            // Verifichiamo se il collega può "venire" al sabato al mio posto
+                            let rigaSpecchioCollega = infoCollega.suoBloccoInizio + (rPartenza % ORE);
+                            let cellaSpecchioCollega = table.rows[rigaSpecchioCollega].cells[COL_SABATO];
+
+                            // Verifichiamo Giorno Libero e Occupazione
+                            if (puoRicevereOra(infoCollega.suoBloccoInizio, COL_SABATO, cellaSpecchioCollega)) {
+                                // ESEGUIAMO LO SCAMBIO INCROCIATO
+                                cellaDestMIA.innerHTML = classe;
+                                table.rows[rPartenza].cells[COL_SABATO].innerHTML = "&nbsp;";
+                                
+                                cellaSpecchioCollega.innerHTML = classe;
+                                infoCollega.cellaAttuale.innerHTML = "&nbsp;";
+                                
+                                log(`OK: ${classe} spostata. Scambiato turno con docente al blocco ${infoCollega.suoBloccoInizio/ORE + 1}`);
+                                successo = true;
+                                risolte++;
+                            }
+                        }
                     }
                 }
             }
         }
-        return false;
-    }
+        log(`Finito. Ore sabato liberate: ${risolte}`);
+    });
 
-    function eseguiScambioSePossibile(r1, c1, r2, c2) {
+    function trovaCollegaConClasse(classe, riga, col) {
         const table = document.getElementById('orarioTable');
-        const classe = table.rows[r1].cells[c1].innerText.trim();
-        const mioBloccoInizio = Math.floor(r1 / ORE) * ORE;
-        const oraRelativaOrigine = r1 % ORE;
-
-        // Trova il collega che ha quella classe nello slot (r2, c2)
-        let infoCollega = null;
-        for (let i = 0; i < table.rows.length; i++) {
-            let suoBlocco = Math.floor(i / ORE) * ORE;
-            if (suoBlocco !== mioBloccoInizio && table.rows[i].cells[c2].innerText.trim() === classe) {
-                
-                let rigaSpecchio = suoBlocco + oraRelativaOrigine;
-                let cellaSpecchio = table.rows[rigaSpecchio].cells[c1];
-
-                // Regola: Il collega non deve avere il giorno libero in c1
-                let libero = true;
-                for(let h=0; h<ORE; h++) {
-                    let cont = table.rows[suoBlocco + h].cells[c1].innerText.trim();
-                    if(cont !== "" && cont !== " ") libero = false;
-                }
-                
-                // Regola: La cella specchio deve essere vuota
-                if (!libero && (cellaSpecchio.innerText.trim() === "" || cellaSpecchio.innerText.trim() === " ")) {
-                    // EFFETTUA LO SCAMBIO
-                    table.rows[r2].cells[c2].innerHTML = classe;
-                    table.rows[r1].cells[c1].innerHTML = "&nbsp;";
-                    cellaSpecchio.innerHTML = classe;
-                    table.rows[i].cells[c2].innerHTML = "&nbsp;";
-                    return true;
-                }
+        // Saltiamo il primo blocco (il tuo)
+        for (let i = ORE; i < table.rows.length; i++) {
+            if (table.rows[i].cells[col].innerText.trim() === classe) {
+                return {
+                    suoBloccoInizio: Math.floor(i / ORE) * ORE,
+                    cellaAttuale: table.rows[i].cells[col]
+                };
             }
         }
-        return false;
+        return null;
     }
 
-    // Manteniamo le funzioni di drag & drop precedenti per aggiustamenti manuali
-    function initDragDrop() {
-        // ... (stessa logica del drag & drop dell'ultimo messaggio)
+    function puoRicevereOra(inizioBlocco, col, cellaTarget) {
+        const table = document.getElementById('orarioTable');
+        // 1. Non deve essere il suo giorno libero
+        let haOreQuelGiorno = false;
+        for (let i = 0; i < ORE; i++) {
+            if (table.rows[inizioBlocco + i].cells[col].innerText.trim() !== "" && 
+                table.rows[inizioBlocco + i].cells[col].innerText.trim() !== " ") {
+                haOreQuelGiorno = true;
+            }
+        }
+        if (!haOreQuelGiorno) return false;
+
+        // 2. La cella deve essere vuota
+        let contenuto = cellaTarget.innerText.trim();
+        return (contenuto === "" || contenuto === " ");
     }
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+        const ws = XLSX.utils.table_to_sheet(document.getElementById('orarioTable'));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Orario_Bilanciato");
+        XLSX.writeFile(wb, "orario_risolto.xlsx");
+    });
 </script>
 </body>
 </html>
