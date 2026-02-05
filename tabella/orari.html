@@ -2,20 +2,17 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Scambio Orario con Blocco Collisioni</title>
+    <title>Orario Scolastico - Blocchi 6 Righe</title>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
         .controls { text-align: center; margin-bottom: 20px; }
-        table { border-collapse: collapse; margin: auto; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        table { border-collapse: collapse; margin: auto; background: white; }
         td, th { border: 1px solid #ccc; width: 100px; height: 40px; text-align: center; font-size: 12px; }
-        th { background: #2c3e50; color: white; }
         .slot { cursor: grab; }
         .drag-over { background: #fff9c4 !important; border: 2px solid #f1c40f; }
         .docente-row { background: #e8f6f3; font-weight: bold; }
         button { padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        /* Stile per l'alert personalizzato se non vuoi usare quello di sistema */
-        .error-msg { color: #d32f2f; font-weight: bold; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
@@ -23,13 +20,12 @@
 <div class="controls">
     <input type="file" id="fileInput" accept=".xlsx, .xls" />
     <button id="exportBtn" style="display:none;">💾 Esporta Excel</button>
-    <div id="statusMsg" class="error-msg"></div>
 </div>
 <div id="tableContainer"></div>
 
 <script>
     let draggedElement = null;
-    const ORE_PER_BLOCCO = 6; 
+    const ORE = 6; // Ogni docente occupa esattamente 6 righe
 
     document.getElementById('fileInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -37,6 +33,7 @@
         reader.onload = function(event) {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
+            // Leggiamo i dati RAW senza saltare nessuna riga
             const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
             renderTable(jsonData);
         };
@@ -44,14 +41,15 @@
     });
 
     function renderTable(data) {
-        let html = '<table id="orarioTable"><thead><tr><th>Docente</th><th>Ora</th><th>Lun</th><th>Mar</th><th>Mer</th><th>Gio</th><th>Ven</th><th>Sab</th></tr></thead><tbody>';
+        let html = '<table id="orarioTable"><tbody>';
         data.forEach((row, rIdx) => {
-            if (rIdx === 0) return;
             html += `<tr>`;
             for (let cIdx = 0; cIdx < 8; cIdx++) {
                 let val = String(row[cIdx] || "").trim();
                 let isSlot = cIdx >= 2;
-                let classes = isSlot ? "slot" : (cIdx === 0 && val !== "" ? "docente-row" : "");
+                // Un docente inizia ogni 6 righe (0, 6, 12...)
+                let isDocenteName = (cIdx === 0 && rIdx % ORE === 0);
+                let classes = isSlot ? "slot" : (isDocenteName ? "docente-row" : "");
                 html += `<td class="${classes}" ${isSlot ? 'draggable="true"' : ''} data-col="${cIdx}">${val === "" ? "&nbsp;" : val}</td>`;
             }
             html += '</tr>';
@@ -64,14 +62,9 @@
     function initDragDrop() {
         const slots = document.querySelectorAll('.slot');
         const table = document.getElementById('orarioTable');
-        const statusMsg = document.getElementById('statusMsg');
 
         slots.forEach(slot => {
-            slot.addEventListener('dragstart', (e) => {
-                draggedElement = slot;
-                statusMsg.style.display = 'none';
-            });
-
+            slot.addEventListener('dragstart', (e) => { draggedElement = slot; });
             slot.addEventListener('dragover', e => e.preventDefault());
             slot.addEventListener('dragenter', () => slot.classList.add('drag-over'));
             slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
@@ -84,66 +77,49 @@
                 const cStart = parseInt(draggedElement.dataset.col);
                 const rEnd = this.parentElement.rowIndex;
                 const cEnd = parseInt(this.dataset.col);
-
                 const classeSpostata = draggedElement.innerText.trim();
+
                 if (!classeSpostata || classeSpostata === "" || classeSpostata === " ") return;
 
-                // --- LOGICA DI SICUREZZA ---
-                
-                // 1. Identifichiamo l'ora relativa del punto di partenza
-                const oraRelativaPartenza = (rStart - 1) % ORE_PER_BLOCCO;
-                const mioBloccoInizio = Math.floor((rStart - 1) / ORE_PER_BLOCCO) * ORE_PER_BLOCCO + 1;
+                // Calcolo indici basato su 0 (Zero-based)
+                const oraRelativaPartenza = rStart % ORE;
+                const mioBloccoInizio = Math.floor(rStart / ORE) * ORE;
 
-                // 2. Cerchiamo prima il collega per vedere se la sua cella di destinazione è libera
                 let infoCollega = null;
-                for (let i = 1; i < table.rows.length; i++) {
-                    let suoBloccoInizio = Math.floor((i - 1) / ORE_PER_BLOCCO) * ORE_PER_BLOCCO + 1;
+                for (let i = 0; i < table.rows.length; i++) {
+                    let suoBloccoInizio = Math.floor(i / ORE) * ORE;
+                    // Cerchiamo la classe nello stesso slot di arrivo (cEnd) ma in un altro docente
                     if (suoBloccoInizio !== mioBloccoInizio && table.rows[i].cells[cEnd].innerText.trim() === classeSpostata) {
                         
                         let rigaSpecchioCollega = suoBloccoInizio + oraRelativaPartenza;
                         let cellaSpecchioCollega = table.rows[rigaSpecchioCollega].cells[cStart];
                         
                         infoCollega = {
-                            rigaDestinazione: rigaSpecchioCollega,
-                            cellaDestinazione: cellaSpecchioCollega,
-                            rigaAttuale: i
+                            cellaPartenzaCollega: table.rows[i].cells[cEnd],
+                            cellaSpecchioCollega: cellaSpecchioCollega
                         };
                         break;
                     }
                 }
 
                 if (infoCollega) {
-                    // CONTROLLO FONDAMENTALE: La cella dove il collega dovrebbe "ricevere" l'ora è vuota?
-                    const contenutoEsistente = infoCollega.cellaDestinazione.innerText.trim();
-                    
-                    if (contenutoEsistente !== "" && contenutoEsistente !== " ") {
-                        // BLOCCA TUTTO
-                        alert("⚠️ Orario già occupato! Il collega ha già la classe " + contenutoEsistente + " nello slot di destinazione.");
-                        statusMsg.innerText = "Operazione annullata: collisione orario.";
-                        statusMsg.style.display = 'block';
-                        return; // Esce dalla funzione senza fare lo scambio
+                    const contenutoOccupato = infoCollega.cellaSpecchioCollega.innerText.trim();
+                    if (contenutoOccupato !== "" && contenutoOccupato !== " ") {
+                        alert("⚠️ Orario già occupato! Il collega ha già [" + contenutoOccupato + "] nello slot di destinazione.");
+                        return;
                     }
 
-                    // Se è libera, procediamo con lo scambio
+                    // Esecuzione Scambio
                     this.innerHTML = classeSpostata;
                     draggedElement.innerHTML = "&nbsp;";
-                    
-                    infoCollega.cellaDestinazione.innerHTML = classeSpostata;
-                    table.rows[infoCollega.rigaAttuale].cells[cEnd].innerHTML = "&nbsp;";
+                    infoCollega.cellaSpecchioCollega.innerHTML = classeSpostata;
+                    infoCollega.cellaPartenzaCollega.innerHTML = "&nbsp;";
                 } else {
-                    alert("Classe " + classeSpostata + " non trovata in altri docenti allo slot di destinazione.");
+                    alert("Classe " + classeSpostata + " non trovata in altri docenti alla posizione di arrivo.");
                 }
             });
         });
     }
-
-    document.getElementById('exportBtn').addEventListener('click', () => {
-        const table = document.getElementById('orarioTable');
-        const ws = XLSX.utils.table_to_sheet(table);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Orario_Corretto");
-        XLSX.writeFile(wb, "orario_scuola_protetto.xlsx");
-    });
 </script>
 </body>
 </html>
